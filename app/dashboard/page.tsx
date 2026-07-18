@@ -14,6 +14,7 @@ import {
   getActiveLessonId,
 } from "@/lib/course-progress";
 import { getUserProfile, listCoursesForUser, listLessonsForCourse } from "@/lib/db/index";
+import { getQuotaSummary, type QuotaSummary } from "@/lib/generation/quota";
 import { getClerkSupabaseAccessToken } from "@/lib/supabase/clerk-token";
 import { profilePreferenceSummary } from "@/lib/user-profile-normalize";
 
@@ -25,6 +26,9 @@ export default async function DashboardPage() {
 
   const profile = supabaseTokenReady ? await getUserProfile(userId) : null;
   const activePreferenceTags = profilePreferenceSummary(profile);
+  const quota: QuotaSummary | null = profile
+    ? await getQuotaSummary(profile)
+    : null;
 
   const courses = await listCoursesForUser(userId);
 
@@ -78,7 +82,7 @@ export default async function DashboardPage() {
         </p>
       ) : null}
 
-      <OmniPromptBar />
+      <OmniPromptBar initialQuota={quota} />
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Active courses</h2>

@@ -7,6 +7,7 @@ import {
   createLesson,
   fetchTrustedRagContext,
   getOrCreateUserProfile,
+  recordGenerationEvent,
   updateUserProfile,
 } from "@/lib/db/index";
 import {
@@ -18,6 +19,7 @@ import {
   buildScopeHints,
   sanitizeLearnerTopic,
 } from "@/lib/generation/prompt";
+import { assertWithinDailyQuota } from "@/lib/generation/quota";
 import {
   classifyAndBuildRoadmap,
   generateLessonPayload,
@@ -27,6 +29,18 @@ import {
   buildLessonPlans,
   slideCountTarget,
 } from "@/lib/gemini/lesson-plans";
+
+/**
+ * Best-effort usage logging — a failure here must never undo or mask a
+ * lesson/course that was already generated and saved successfully.
+ */
+async function logGenerationEvent(kind: "classification" | "lesson") {
+  try {
+    await recordGenerationEvent(kind);
+  } catch (error) {
+    console.error(`[generation] failed to record ${kind} usage event:`, error);
+  }
+}
 
 export async function createCourseFromPrompt(
   userPrompt: string,
@@ -60,11 +74,17 @@ export async function createCourseFromPrompt(
       profile = await updateUserProfile(userId, options.profilePatch);
     }
 
+    // Reject before spending anything on Gemini if the caller is already
+    // out of quota for the day — see lib/generation/quota.ts for why this
+    // is a pre-check rather than a mid-burst meter.
+    await assertWithinDailyQuota(profile);
+
     const classification = await classifyAndBuildRoadmap(
       cleanTopic,
       profile,
       generationContext,
     );
+    await logGenerationEvent("classification");
 
     const course = await createCourse({
       user_id: userId,
@@ -120,6 +140,7 @@ export async function createCourseFromPrompt(
         slides,
         ragContext,
       );
+      await logGenerationEvent("lesson");
 
       const lesson = await createLesson({
         course_id: course.id,

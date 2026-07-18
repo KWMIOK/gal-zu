@@ -50,6 +50,17 @@ export interface NeurodivergentAccommodations {
 
 export type ScopeType = "micro" | "unit" | "macro";
 
+/** Subscription tier — drives the daily generation cap (see `lib/generation/quota.ts`). */
+export type PlanTier = "free" | "pro";
+
+/** Mirrors RevenueCat's entitlement lifecycle for the linked subscription, if any. */
+export type SubscriptionStatus =
+  | "none"
+  | "active"
+  | "grace_period"
+  | "expired"
+  | "cancelled";
+
 export type LessonFormat = "slideshow" | "cheat_sheet" | "quiz" | "script";
 
 export interface RoadmapModule {
@@ -184,8 +195,23 @@ export interface UserProfile {
   id: UserProfileId;
   learning_styles: LearningStyles;
   neurodivergent_accommodations: NeurodivergentAccommodations;
+  /** Defaults to "free" for every user until a RevenueCat webhook says otherwise. */
+  plan_tier: PlanTier;
+  subscription_status: SubscriptionStatus;
+  subscription_expires_at: string | null;
+  subscription_updated_at: string | null;
+  /** RevenueCat's app_user_id for this profile, once a purchase has been linked. */
+  revenuecat_app_user_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** One row per Gemini call that actually ran — the read side of the daily generation cap. */
+export interface GenerationEvent {
+  id: string;
+  user_id: UserProfileId;
+  kind: "classification" | "lesson";
+  created_at: string;
 }
 
 export interface Course {
@@ -217,8 +243,22 @@ export type UserProfileInsert = {
 };
 
 export type UserProfileUpdate = Partial<
-  Pick<UserProfile, "learning_styles" | "neurodivergent_accommodations">
+  Pick<
+    UserProfile,
+    | "learning_styles"
+    | "neurodivergent_accommodations"
+    | "plan_tier"
+    | "subscription_status"
+    | "subscription_expires_at"
+    | "subscription_updated_at"
+    | "revenuecat_app_user_id"
+  >
 >;
+
+export type GenerationEventInsert = {
+  user_id: UserProfileId;
+  kind: "classification" | "lesson";
+};
 
 export type CourseInsert = {
   user_id: UserProfileId;
@@ -275,6 +315,11 @@ export type Database = {
           id: string;
           learning_styles?: LearningStyles;
           neurodivergent_accommodations?: NeurodivergentAccommodations;
+          plan_tier?: PlanTier;
+          subscription_status?: SubscriptionStatus;
+          subscription_expires_at?: string | null;
+          subscription_updated_at?: string | null;
+          revenuecat_app_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -282,6 +327,11 @@ export type Database = {
           id?: string;
           learning_styles?: LearningStyles;
           neurodivergent_accommodations?: NeurodivergentAccommodations;
+          plan_tier?: PlanTier;
+          subscription_status?: SubscriptionStatus;
+          subscription_expires_at?: string | null;
+          subscription_updated_at?: string | null;
+          revenuecat_app_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -347,6 +397,30 @@ export type Database = {
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      generation_events: {
+        Row: GenerationEvent;
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: "classification" | "lesson";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          kind?: "classification" | "lesson";
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "generation_events_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "user_profiles";
             referencedColumns: ["id"];
           },
         ];

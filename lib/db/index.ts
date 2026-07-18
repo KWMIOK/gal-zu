@@ -1,13 +1,17 @@
 import { auth } from "@clerk/nextjs/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
   type Course,
   type CourseInsert,
+  type GenerationEvent,
   type Lesson,
   type LessonInsert,
+  type PlanTier,
+  type SubscriptionStatus,
   type UserProfile,
   type UserProfileInsert,
   type UserProfileUpdate,
@@ -286,6 +290,83 @@ export async function deleteLesson(lessonId: string): Promise<void> {
 
   if (error) {
     throw new DbError(`deleteLesson: ${error.message}`, error);
+  }
+}
+
+/**
+ * Logs one completed Gemini call against the daily generation cap (see
+ * `lib/generation/quota.ts`). Deliberately swallow-free of retries here —
+ * callers should treat a logging failure as non-fatal (the lesson/course
+ * was already generated successfully) and just report it, never roll back
+ * or block on it.
+ */
+export async function recordGenerationEvent(
+  kind: GenerationEvent["kind"],
+): Promise<void> {
+  const { supabase, userId } = await getAuthedSupabase();
+
+  const { error } = await supabase
+    .from("generation_events")
+    .insert({ user_id: userId, kind });
+
+  if (error) {
+    throw new DbError(`recordGenerationEvent: ${error.message}`, error);
+  }
+}
+
+/** Count of generation events for `userId` at or after `sinceIso` — the daily-cap read side. */
+export async function countGenerationEventsSince(
+  userId: string,
+  sinceIso: string,
+): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+
+  const { count, error } = await supabase
+    .from("generation_events")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", sinceIso);
+
+  if (error) {
+    throw new DbError(`countGenerationEventsSince: ${error.message}`, error);
+  }
+
+  return count ?? 0;
+}
+
+/**
+ * Writes subscription entitlement fields onto a user's profile using the
+ * Supabase **service role** client — the only DB helper in this file that
+ * bypasses RLS, because it's meant to be called from the RevenueCat webhook
+ * route, which has no Clerk session to authenticate as the affected user.
+ * Never expose this to anything reachable from a user-authenticated request.
+ */
+export async function upsertSubscriptionEntitlement(
+  userId: string,
+  patch: {
+    plan_tier: PlanTier;
+    subscription_status: SubscriptionStatus;
+    subscription_expires_at: string | null;
+    revenuecat_app_user_id?: string | null;
+  },
+): Promise<void> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({
+      plan_tier: patch.plan_tier,
+      subscription_status: patch.subscription_status,
+      subscription_expires_at: patch.subscription_expires_at,
+      subscription_updated_at: new Date().toISOString(),
+      ...(patch.revenuecat_app_user_id !== undefined
+        ? { revenuecat_app_user_id: patch.revenuecat_app_user_id }
+        : {}),
+    })
+    .eq("id", userId);
+
+  if (error) {
+    throw new DbError(`upsertSubscriptionEntitlement: ${error.message}`, error);
   }
 }
 

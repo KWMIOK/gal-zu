@@ -28,12 +28,20 @@ const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z
     .string()
     .min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
+  // Unset until a RevenueCat project + store accounts exist — every call site
+  // in lib/capacitor/purchases.ts treats a missing key as "not configured"
+  // and no-ops instead of throwing, so the app works fully without these.
+  NEXT_PUBLIC_REVENUECAT_IOS_KEY: z.string().min(1).optional(),
+  NEXT_PUBLIC_REVENUECAT_ANDROID_KEY: z.string().min(1).optional(),
 });
 
 const serverEnvSchema = z.object({
   CLERK_SECRET_KEY: clerkSecretKeySchema,
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  // Unset until the RevenueCat webhook is actually enabled — see
+  // app/api/webhooks/revenuecat/route.ts, which 501s while this is unset.
+  REVENUECAT_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
@@ -59,6 +67,9 @@ export function getPublicEnv(): PublicEnv {
       process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_REVENUECAT_IOS_KEY: process.env.NEXT_PUBLIC_REVENUECAT_IOS_KEY,
+    NEXT_PUBLIC_REVENUECAT_ANDROID_KEY:
+      process.env.NEXT_PUBLIC_REVENUECAT_ANDROID_KEY,
   });
 
   if (!parsed.success) {
@@ -85,6 +96,7 @@ export function getServerEnv(): ServerEnv {
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    REVENUECAT_WEBHOOK_SECRET: process.env.REVENUECAT_WEBHOOK_SECRET,
   });
 
   if (!parsed.success) {

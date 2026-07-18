@@ -17,7 +17,8 @@ export type CreateCourseFromPromptOptions = {
 export type CreateCourseFromPromptErrorCode =
   | "UNAUTHORIZED"
   | "INVALID_INPUT"
-  | "GENERATION_FAILED";
+  | "GENERATION_FAILED"
+  | "CAP_REACHED";
 
 export class CreateCourseFromPromptError extends Error {
   constructor(

@@ -7,15 +7,22 @@ import {
   GraduationCap,
   Loader2,
   Sparkles,
+  Sprout,
   Zap,
 } from "lucide-react";
 
 import { createCourseFromPrompt } from "@/app/actions/generation";
+import { PLAN_TIERS } from "@/lib/billing/tiers";
 import {
   type CreateCourseFromPromptOptions,
   type PromptDepth,
   type PromptSessionLength,
 } from "@/lib/generation/create-course";
+import {
+  isCapReachedMessage,
+  stripCapReachedPrefix,
+  type QuotaSummary,
+} from "@/lib/generation/quota-shared";
 import { GlassCard } from "@/components/ui/glass-card";
 
 const depthOptions: { id: PromptDepth; label: string; icon: typeof Zap }[] = [
@@ -32,18 +39,24 @@ const sessionOptions: {
   { id: "multi_week", label: "Multi-week" },
 ];
 
-export function OmniPromptBar() {
+export function OmniPromptBar({
+  initialQuota,
+}: {
+  initialQuota?: QuotaSummary | null;
+}) {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [depth, setDepth] = useState<PromptDepth>("quick_answer");
   const [sessionLength, setSessionLength] =
     useState<PromptSessionLength>("20min");
   const [error, setError] = useState<string | null>(null);
+  const [capReached, setCapReached] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setCapReached(false);
 
     const options: CreateCourseFromPromptOptions = {
       depth,
@@ -57,9 +70,14 @@ export function OmniPromptBar() {
           `/courses/${result.courseId}/lessons/${result.firstLessonId}`,
         );
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Something went wrong.",
-        );
+        const message =
+          err instanceof Error ? err.message : "Something went wrong.";
+        if (isCapReachedMessage(message)) {
+          setCapReached(true);
+          setError(stripCapReachedPrefix(message));
+        } else {
+          setError(message);
+        }
       }
     });
   }
@@ -68,9 +86,23 @@ export function OmniPromptBar() {
     <GlassCard className="relative overflow-hidden p-6">
       <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-violet-500/20 blur-3xl" />
       <form onSubmit={handleSubmit} className="relative space-y-4">
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          What do you want to learn today?
-        </label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            What do you want to learn today?
+          </label>
+          {initialQuota ? (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                initialQuota.remaining <= 0
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                  : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+              }`}
+            >
+              <Sprout className="h-3.5 w-3.5" />
+              {initialQuota.remaining} of {initialQuota.limit} lessons left today
+            </span>
+          ) : null}
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
             type="text"
@@ -144,7 +176,31 @@ export function OmniPromptBar() {
           </div>
         </div>
 
-        {error ? (
+        {error && capReached ? (
+          <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {error}
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white/60 p-3 dark:bg-zinc-900/40">
+              <div>
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {PLAN_TIERS.pro.name} — {PLAN_TIERS.pro.priceLabel}
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {PLAN_TIERS.pro.dailyLessonLimit} lessons/day · {PLAN_TIERS.pro.tagline}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled
+                title="Subscriptions aren't live yet — this button isn't wired up to a real purchase."
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full bg-amber-600/40 px-3 py-1.5 text-sm font-semibold text-white opacity-70"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Upgrade (coming soon)
+              </button>
+            </div>
+          </div>
+        ) : error ? (
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         ) : null}
 

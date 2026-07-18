@@ -1,0 +1,34 @@
+name: Gemini model connectivity check
+
+# Catches the exact failure mode that caused every lesson to silently fall
+# back to placeholder content for weeks: a hardcoded model ID in
+# lib/gemini.ts's MODEL_CANDIDATES gets deprecated or quota-blocked and
+# generation keeps "succeeding" with generic filler instead of erroring
+# loudly. This job fails the run (and, on schedule, emails/notifies repo
+# watchers per GitHub's default notification settings) the moment none of
+# the configured models are reachable, instead of that being discovered
+# only when a user complains about weak content.
+
+on:
+  schedule:
+    # Twice a day — Gemini model deprecations/quota changes aren't
+    # continuous, so this doesn't need to run on every commit.
+    - cron: "0 */12 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Verify at least one configured Gemini model is reachable
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node -r tsx/cjs scripts/verify-gemini-models.ts
