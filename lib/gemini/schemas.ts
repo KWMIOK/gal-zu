@@ -54,12 +54,35 @@ export const matchPairItemSchema = z.object({
   right: z.string().min(1),
 });
 
-/** Duolingo-style mini-game gating slide progression until solved. */
-export const interactiveWidgetSchema = z.object({
+export const multipleChoiceOptionSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1),
+});
+
+export const multipleChoiceWidgetDataSchema = z.object({
+  question: z.string().min(1),
+  options: z.array(multipleChoiceOptionSchema).min(3).max(5),
+  correct_option_id: z.string().min(1),
+  explanation: z.string().optional(),
+});
+
+const matchPairsWidgetSchema = z.object({
   type: z.literal("match_pairs"),
   prompt: z.string().optional(),
   data: z.array(matchPairItemSchema).min(2).max(6),
 });
+
+const multipleChoiceWidgetSchema = z.object({
+  type: z.literal("multiple_choice"),
+  prompt: z.string().optional(),
+  data: multipleChoiceWidgetDataSchema,
+});
+
+/** Duolingo-style mini-games gating slide progression until solved. */
+export const interactiveWidgetSchema = z.discriminatedUnion("type", [
+  matchPairsWidgetSchema,
+  multipleChoiceWidgetSchema,
+]);
 
 export const citationSchema = z.object({
   title: z.string().min(1),

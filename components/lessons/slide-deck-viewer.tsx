@@ -14,6 +14,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { InteractiveWidgetPlayer } from "@/components/lessons/interactive-widget";
 import { LottieSlideAnimation } from "@/components/lessons/lottie-slide-animation";
 import { TtsControls } from "@/components/lessons/tts-controls";
+import { useSpeechSynthesis } from "@/lib/tts/use-speech-synthesis";
 import type { SlideContent } from "@/types/database";
 
 export function SlideDeckViewer({
@@ -28,6 +29,7 @@ export function SlideDeckViewer({
   const [showNotes, setShowNotes] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [solvedWidgets, setSolvedWidgets] = useState<Set<string>>(new Set());
+  const tts = useSpeechSynthesis();
   const slide = slides[index];
   const progress = ((index + 1) / slides.length) * 100;
   const isLastSlide = index >= slides.length - 1;
@@ -40,13 +42,32 @@ export function SlideDeckViewer({
     setSolvedWidgets((prev) => new Set(prev).add(slideId));
   }, []);
 
+  // Narration is triggered synchronously here — inside the same click /
+  // keydown call stack that changes the slide — because
+  // `speechSynthesis.speak()` only reliably plays audio when invoked
+  // inside a genuine user-gesture call stack. Firing it from a `useEffect`
+  // after the slide re-renders is *not* a gesture context in most
+  // browsers/WebViews and gets silently swallowed (no error, no sound).
   const goPrev = useCallback(() => {
-    setIndex((i) => Math.max(0, i - 1));
-  }, []);
+    const target = Math.max(0, index - 1);
+    setIndex(target);
+    tts.speak(slides[target]?.spoken_narration);
+  }, [index, slides, tts]);
 
   const goNext = useCallback(() => {
-    setIndex((i) => Math.min(slides.length - 1, i + 1));
-  }, [slides.length]);
+    const target = Math.min(slides.length - 1, index + 1);
+    setIndex(target);
+    tts.speak(slides[target]?.spoken_narration);
+  }, [index, slides, tts]);
+
+  useEffect(() => {
+    // Best-effort only: the very first slide has no preceding user gesture
+    // on initial page load, so browsers may block this silently — that's
+    // an inherent platform limitation, not a bug. The Play button always
+    // works since it's a real click.
+    tts.speak(slides[0]?.spoken_narration);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -89,6 +110,7 @@ export function SlideDeckViewer({
   function handlePrimaryAction() {
     if (widgetLocked) return;
     if (isLastSlide) {
+      tts.stop();
       onFinish?.();
       return;
     }
@@ -105,7 +127,17 @@ export function SlideDeckViewer({
           Slide {index + 1} of {slides.length}
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          <TtsControls key={`tts-${slide.id}`} text={slide.spoken_narration} />
+          <TtsControls
+            status={tts.status}
+            supported={tts.supported}
+            hasText={Boolean(slide.spoken_narration)}
+            onPlay={() => {
+              if (tts.status === "paused") tts.resume();
+              else tts.speak(slide.spoken_narration);
+            }}
+            onPause={tts.pause}
+            onReplay={tts.replay}
+          />
           <button
             type="button"
             onClick={() => setShowNotes((v) => !v)}

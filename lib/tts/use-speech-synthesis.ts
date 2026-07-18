@@ -6,37 +6,45 @@ export type SpeechStatus = "idle" | "speaking" | "paused" | "unsupported";
 
 /**
  * Thin wrapper around the Web Speech API (`window.speechSynthesis`).
- * One hook instance is meant to live for exactly one piece of narration —
- * mount it with a `key` tied to that content (e.g. the slide id) so it
- * resets cleanly instead of trying to resume a stale utterance.
+ *
+ * Deliberately exposes `speak(text)` as an imperative call rather than
+ * auto-playing from a `useEffect` on mount. Browsers only allow
+ * `speechSynthesis.speak()` to reliably produce audio when it's invoked
+ * synchronously inside a real user-gesture call stack (click, keydown) —
+ * an effect that fires after a render commit is *not* that, so a
+ * mount-triggered auto-play gets silently swallowed on many
+ * browsers/WebViews (no error, no audio). Call `speak()` directly from
+ * the click/keydown handler that changes slides instead.
  */
-export function useSpeechSynthesis(text: string | undefined) {
+export function useSpeechSynthesis() {
   const supported =
     typeof window !== "undefined" && "speechSynthesis" in window;
   const [status, setStatus] = useState<SpeechStatus>(
     supported ? "idle" : "unsupported",
   );
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const lastTextRef = useRef<string | undefined>(undefined);
 
-  const play = useCallback(() => {
-    if (!supported || !text) return;
+  const speak = useCallback(
+    (text: string | undefined) => {
+      if (!supported) return;
+      if (!text) {
+        window.speechSynthesis.cancel();
+        setStatus("idle");
+        return;
+      }
 
-    if (status === "paused" && utteranceRef.current) {
-      window.speechSynthesis.resume();
+      window.speechSynthesis.cancel();
+      lastTextRef.current = text;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.onend = () => setStatus("idle");
+      utterance.onerror = () => setStatus("idle");
+      window.speechSynthesis.speak(utterance);
       setStatus("speaking");
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.onend = () => setStatus("idle");
-    utterance.onerror = () => setStatus("idle");
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-    setStatus("speaking");
-  }, [supported, text, status]);
+    },
+    [supported],
+  );
 
   const pause = useCallback(() => {
     if (!supported) return;
@@ -44,14 +52,21 @@ export function useSpeechSynthesis(text: string | undefined) {
     setStatus("paused");
   }, [supported]);
 
+  const resume = useCallback(() => {
+    if (!supported) return;
+    window.speechSynthesis.resume();
+    setStatus("speaking");
+  }, [supported]);
+
   const replay = useCallback(() => {
-    if (!supported || !text) return;
+    if (lastTextRef.current) speak(lastTextRef.current);
+  }, [speak]);
+
+  const stop = useCallback(() => {
+    if (!supported) return;
     window.speechSynthesis.cancel();
-    utteranceRef.current = null;
     setStatus("idle");
-    // Re-queue on next tick so `cancel()` has flushed before `speak()`.
-    setTimeout(() => play(), 0);
-  }, [supported, text, play]);
+  }, [supported]);
 
   useEffect(() => {
     return () => {
@@ -59,5 +74,5 @@ export function useSpeechSynthesis(text: string | undefined) {
     };
   }, [supported]);
 
-  return { status, supported, play, pause, replay };
+  return { status, supported, speak, pause, resume, replay, stop };
 }

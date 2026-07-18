@@ -84,12 +84,32 @@ export interface MatchPairItem {
   right: string;
 }
 
-/** Duolingo-style mini-game. `match_pairs` is the only implemented type so far. */
-export interface InteractiveWidget {
+export interface MatchPairsWidget {
   type: "match_pairs";
   prompt?: string;
   data: MatchPairItem[];
 }
+
+export interface MultipleChoiceOption {
+  id: string;
+  text: string;
+}
+
+export interface MultipleChoiceWidgetData {
+  question: string;
+  options: MultipleChoiceOption[];
+  correct_option_id: string;
+  explanation?: string;
+}
+
+export interface MultipleChoiceWidget {
+  type: "multiple_choice";
+  prompt?: string;
+  data: MultipleChoiceWidgetData;
+}
+
+/** Duolingo-style mini-games that halt slide progression until solved. */
+export type InteractiveWidget = MatchPairsWidget | MultipleChoiceWidget;
 
 export interface Citation {
   title: string;

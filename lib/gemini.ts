@@ -35,11 +35,17 @@ import type {
   UserProfile,
 } from "@/types/database";
 
+// "gemini-2.5-flash" / "gemini-2.0-flash" / "gemini-1.5-flash" are dead for
+// new API keys (404 "no longer available to new users") or hard-quota-
+// blocked (429, limit: 0) on the free tier — confirmed live against the
+// Gemini API on 2026-07-18. The "-latest" aliases below always point at
+// whatever the current non-deprecated flash model is, so this list won't
+// silently rot again the same way.
 const MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL,
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
+  "gemini-flash-latest",
+  "gemini-flash-lite-latest",
+  "gemini-3-flash-preview",
 ].filter((value): value is string => Boolean(value));
 
 export class GeminiEngineError extends Error {
@@ -183,6 +189,12 @@ type GroundingResult = {
  * ourselves, and feed the prose + citation list into pass 2's structured
  * JSON prompt as verified research context. Best-effort — returns `null`
  * on failure so lesson generation degrades gracefully instead of failing.
+ *
+ * NOTE: Google Search grounding requires a billing-enabled Google AI
+ * Studio / Cloud project — on the free tier it returns 429
+ * `RESOURCE_EXHAUSTED` regardless of which model is used. That failure is
+ * account-wide, not model-specific, so we stop retrying other candidates
+ * immediately instead of burning 3 doomed calls on every lesson.
  */
 async function groundedResearch(topic: string): Promise<GroundingResult | null> {
   const ai = getGeminiClient();
@@ -223,7 +235,17 @@ Write a dense factual briefing (short paragraphs or bullets) covering real defin
 
       return { briefing, citations };
     } catch (error) {
+      const status =
+        error && typeof error === "object" && "status" in error
+          ? (error as { status: unknown }).status
+          : undefined;
       console.warn(`[gemini] groundedResearch failed for model ${model}:`, error);
+      if (status === 429) {
+        console.warn(
+          "[gemini] Grounding quota exhausted (needs a billing-enabled AI Studio project) — skipping remaining models for this call.",
+        );
+        return null;
+      }
     }
   }
 
@@ -645,16 +667,31 @@ Every slide object MUST include these fields:
 - "text_content": the primary educational text (what earlier prompts called "body") — dense, factual, on-topic
 - "spoken_narration": a warm, conversational script written to be read aloud by Text-to-Speech. It should
   narrate/explain the slide's idea in natural spoken sentences — NOT a verbatim copy of "text_content" (no bullet
-  fragments, no bracket notation, no equations-as-symbols; spell out numbers/operators if relevant).
+  fragments, no bracket notation, no equations-as-symbols; spell out numbers/operators if relevant). If the slide
+  contains non-Latin script, "spoken_narration" must describe how it sounds in words (e.g. "pronounced ahlan") —
+  never just repeat the raw glyphs, since a screen reader cannot pronounce them.
 - "animation_prompt": pick the closest match from this list based on the slide's mood/content: ${ANIMATION_TAGS.join(", ")}.
+
+LANGUAGE-LEARNING TOPICS (e.g. "Arabic", "Georgian", "Japanese", any specific language name): this is the highest-
+value case, treat it like Duolingo's own curriculum, not a Wikipedia summary:
+- Actually WRITE the target language's native script/characters inline in "text_content" (and, where natural,
+  "callout") — e.g. real Arabic letters (ا ب ت), real Hangul, real Hanzi/Kanji — never transliteration-only, never a
+  generic "here's how alphabets work" description with zero characters from the actual language.
+- Pair every native-script term with its transliteration AND English meaning, e.g. "مرحبا (marhaban) — hello".
+- Include actual phonetic/pronunciation guidance (IPA or plain-English approximation) for at least one slide.
+- Prefer 2-3 "interactive_widget" slides over just one (see below) so vocabulary gets genuine repeated practice,
+  the way a Duolingo lesson drills a small word set from multiple angles.
 
 Optional fields:
 - "callout", "visual_hint", "speaker_notes": as before.
-- "interactive_widget": add this to EXACTLY ONE slide in the deck (ideally the practice/application slide) — a
-  Duolingo-style "match_pairs" mini-game:
-  { "type": "match_pairs", "prompt": string, "data": [{ "id": string, "left": string, "right": string }, ...(2-6 pairs)] }
-  Pairs must be genuinely topic-specific (e.g. vocabulary↔translation, term↔definition, step↔result) — never generic
-  placeholders. Every other slide MUST omit "interactive_widget" entirely.
+- "interactive_widget": add this to 1-3 slides in the deck (ideally the practice/application slides), never more
+  than one widget per slide. Two mini-game types are supported — mix them for variety on language/vocab-heavy
+  topics instead of repeating the same one:
+  1. "match_pairs": { "type": "match_pairs", "prompt": string, "data": [{ "id": string, "left": string, "right": string }, ...(2-6 pairs)] }
+  2. "multiple_choice": { "type": "multiple_choice", "prompt": string, "data": { "question": string, "options": [{ "id": string, "text": string }, ...(3-5 options)], "correct_option_id": string, "explanation": string } }
+  Content must be genuinely topic-specific (real vocabulary↔translation, term↔definition, step↔result, or a real
+  comprehension question) — never generic placeholders. Slides without a widget MUST omit "interactive_widget"
+  entirely.
 - Never invent citation URLs yourself — those are attached separately from verified sources.`;
 
 /**
