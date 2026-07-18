@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
@@ -15,6 +17,37 @@ import type { CapacitorConfig } from "@capacitor/cli";
  */
 const remoteUrl = process.env.MOBILE_APP_URL;
 
+/**
+ * Clerk performs a top-level "handshake" redirect through its own hosted
+ * domain (`<instance>.clerk.accounts.dev`, or a custom domain on paid
+ * plans) on first load to establish session cookies — WebViews can't be
+ * trusted to persist third-party cookies the way a full browser can.
+ *
+ * If that domain isn't explicitly allowed, Capacitor's Android WebView
+ * hands the *entire* navigation off to the system browser (Chrome) instead
+ * of loading it inside the app — which looks exactly like "the app opens
+ * in the browser". Decoding it from the publishable key (rather than
+ * hardcoding it) keeps this correct if the Clerk instance ever changes.
+ */
+function getClerkFrontendApiHost(): string | undefined {
+  try {
+    const envFile = readFileSync(join(__dirname, ".env.local"), "utf8");
+    const match = envFile.match(
+      /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY\s*=\s*(\S+)/,
+    );
+    const key = match?.[1]?.trim();
+    const encoded = key?.split("_")[2];
+    if (!encoded) return undefined;
+
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+    return decoded.replace(/\$$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+const clerkFrontendApiHost = getClerkFrontendApiHost();
+
 const config: CapacitorConfig = {
   appId: "com.galzu.app",
   appName: "Gal-zu",
@@ -27,6 +60,14 @@ const config: CapacitorConfig = {
           // Production URLs should always be https.
           cleartext: remoteUrl.startsWith("http://"),
           androidScheme: "https",
+          // Keep Clerk's cookie-handshake redirect (and any other Clerk
+          // hosted-domain navigation) inside the app's own WebView instead
+          // of kicking the user out to Chrome.
+          allowNavigation: [
+            ...(clerkFrontendApiHost ? [clerkFrontendApiHost] : []),
+            "*.clerk.accounts.dev",
+            "*.accounts.dev",
+          ],
         },
       }
     : {}),

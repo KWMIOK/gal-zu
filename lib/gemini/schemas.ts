@@ -48,19 +48,44 @@ export const courseClassificationSchema = z.object({
   first_lesson: firstLessonPlanSchema,
 });
 
+export const matchPairItemSchema = z.object({
+  id: z.string().min(1),
+  left: z.string().min(1),
+  right: z.string().min(1),
+});
+
+/** Duolingo-style mini-game gating slide progression until solved. */
+export const interactiveWidgetSchema = z.object({
+  type: z.literal("match_pairs"),
+  prompt: z.string().optional(),
+  data: z.array(matchPairItemSchema).min(2).max(6),
+});
+
+export const citationSchema = z.object({
+  title: z.string().min(1),
+  url: z.string().min(1),
+});
+
 export const slideSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
-  body: z.string().min(1),
+  text_content: z.string().min(1),
   callout: z.string().optional(),
   visual_hint: z.string().optional(),
   speaker_notes: z.string().optional(),
+  /** Conversational TTS script — distinct from `text_content`, which is read visually. */
+  spoken_narration: z.string().min(1),
+  /** Semantic tag used to pick a Lottie animation on the frontend. */
+  animation_prompt: z.string().optional(),
+  interactive_widget: interactiveWidgetSchema.optional(),
 });
 
 export const slideContentSchema = z.object({
   type: z.literal("slideshow"),
   slides: z.array(slideSchema).min(5).max(8),
   estimated_minutes: z.number().int().positive().optional(),
+  /** Populated from real Google Search grounding metadata, not model-generated. */
+  citations: z.array(citationSchema).optional(),
 });
 
 export const cheatSheetContentSchema = z.object({

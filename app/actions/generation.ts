@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import {
   createCourse,
   createLesson,
+  fetchTrustedRagContext,
   getOrCreateUserProfile,
   updateUserProfile,
 } from "@/lib/db/index";
@@ -99,12 +100,25 @@ export async function createCourseFromPrompt(
         `Module: ${plan.moduleTitle} (${plan.phaseTitle})`,
       ].join("\n");
 
+      // Stubbed today (see `fetchTrustedRagContext`) — always empty until
+      // Phase 6 wires up a real LlamaIndex-backed retrieval store, at which
+      // point verified textbook/doc chunks will flow straight into the
+      // Gemini prompt here without any other call-site changes.
+      const rag = await fetchTrustedRagContext(plan.topic);
+      const ragContext =
+        rag.chunks.length > 0
+          ? rag.chunks
+              .map((chunk) => `Source: ${chunk.source}\n${chunk.text}`)
+              .join("\n\n")
+          : undefined;
+
       const contentPayload = await generateLessonPayload(
         plan.topic,
         plan.format,
         profile,
         lessonContext,
         slides,
+        ragContext,
       );
 
       const lesson = await createLesson({

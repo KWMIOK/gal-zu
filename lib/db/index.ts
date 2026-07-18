@@ -288,3 +288,37 @@ export async function deleteLesson(lessonId: string): Promise<void> {
     throw new DbError(`deleteLesson: ${error.message}`, error);
   }
 }
+
+/** A single retrieved chunk from a trusted, pre-vetted knowledge source. */
+export type RagContextChunk = {
+  source: string;
+  text: string;
+  url?: string;
+};
+
+export type RagContextResult = {
+  chunks: RagContextChunk[];
+  /** True once a real retrieval backend is wired up; always false for the stub. */
+  isLive: boolean;
+};
+
+/**
+ * Architecture stub for Phase 6 (LlamaIndex RAG).
+ *
+ * Once implemented, this will query a vector index built from vetted
+ * textbooks/documentation (via LlamaIndex, likely backed by a `pgvector`
+ * table in this same Supabase project) and return the top-matching chunks
+ * for `topic`, so `generateLessonPayload` in `lib/gemini.ts` can inject
+ * verified source material into the prompt instead of relying solely on
+ * the model's parametric memory or live Google Search grounding.
+ *
+ * Intentionally returns an empty result today — call sites must treat an
+ * empty `chunks` array as "no trusted context available" and fall back to
+ * their existing generation path, never as an error.
+ */
+export async function fetchTrustedRagContext(
+  topic: string,
+): Promise<RagContextResult> {
+  void topic;
+  return { chunks: [], isLive: false };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 
 import { GlassCard } from "@/components/ui/glass-card";
+import { InteractiveWidgetPlayer } from "@/components/lessons/interactive-widget";
+import { LottieSlideAnimation } from "@/components/lessons/lottie-slide-animation";
+import { TtsControls } from "@/components/lessons/tts-controls";
 import type { SlideContent } from "@/types/database";
 
 export function SlideDeckViewer({
@@ -24,9 +27,18 @@ export function SlideDeckViewer({
   const [index, setIndex] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [solvedWidgets, setSolvedWidgets] = useState<Set<string>>(new Set());
   const slide = slides[index];
   const progress = ((index + 1) / slides.length) * 100;
   const isLastSlide = index >= slides.length - 1;
+  const slideText = slide.text_content ?? slide.body ?? "";
+  const widgetLocked = Boolean(
+    slide.interactive_widget && !solvedWidgets.has(slide.id),
+  );
+
+  const markWidgetSolved = useCallback((slideId: string) => {
+    setSolvedWidgets((prev) => new Set(prev).add(slideId));
+  }, []);
 
   const goPrev = useCallback(() => {
     setIndex((i) => Math.max(0, i - 1));
@@ -46,13 +58,14 @@ export function SlideDeckViewer({
       }
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "ArrowRight") {
+        if (widgetLocked) return;
         if (isLastSlide) onFinish?.();
         else goNext();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goNext, goPrev, isLastSlide, onFinish]);
+  }, [goNext, goPrev, isLastSlide, onFinish, widgetLocked]);
 
   async function toggleFullscreen() {
     const el = document.getElementById("slide-deck-root");
@@ -74,6 +87,7 @@ export function SlideDeckViewer({
   }, []);
 
   function handlePrimaryAction() {
+    if (widgetLocked) return;
     if (isLastSlide) {
       onFinish?.();
       return;
@@ -82,7 +96,7 @@ export function SlideDeckViewer({
   }
 
   const primaryLabel = isLastSlide ? "Finish lesson" : "Next";
-  const primaryDisabled = isLastSlide && !onFinish;
+  const primaryDisabled = (isLastSlide && !onFinish) || widgetLocked;
 
   return (
     <div id="slide-deck-root" className="relative space-y-4">
@@ -90,7 +104,8 @@ export function SlideDeckViewer({
         <span>
           Slide {index + 1} of {slides.length}
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <TtsControls key={`tts-${slide.id}`} text={slide.spoken_narration} />
           <button
             type="button"
             onClick={() => setShowNotes((v) => !v)}
@@ -131,11 +146,13 @@ export function SlideDeckViewer({
             transition={{ duration: 0.25 }}
             className="space-y-4"
           >
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <LottieSlideAnimation animationPrompt={slide.animation_prompt} />
+
+            <h2 className="text-center text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 md:text-left">
               {slide.title}
             </h2>
             <p className="text-lg leading-relaxed text-zinc-700 dark:text-zinc-300">
-              {slide.body}
+              {slideText}
             </p>
             {slide.callout ? (
               <p className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-100">
@@ -144,6 +161,13 @@ export function SlideDeckViewer({
             ) : null}
             {slide.visual_hint ? (
               <p className="text-sm italic text-zinc-500">{slide.visual_hint}</p>
+            ) : null}
+
+            {slide.interactive_widget ? (
+              <InteractiveWidgetPlayer
+                widget={slide.interactive_widget}
+                onComplete={() => markWidgetSolved(slide.id)}
+              />
             ) : null}
           </motion.div>
         </AnimatePresence>
@@ -164,6 +188,8 @@ export function SlideDeckViewer({
         </p>
       ) : null}
 
+      <CitationsFooter citations={content.citations} />
+
       <div className="relative z-10 flex justify-between gap-3">
         <button
           type="button"
@@ -177,11 +203,43 @@ export function SlideDeckViewer({
           type="button"
           onClick={handlePrimaryAction}
           disabled={primaryDisabled}
+          title={widgetLocked ? "Complete the activity above to continue" : undefined}
           className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {primaryLabel} <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+    </div>
+  );
+}
+
+function CitationsFooter({
+  citations,
+}: {
+  citations?: { title: string; url: string }[];
+}) {
+  const items = useMemo(() => citations ?? [], [citations]);
+  if (items.length === 0) return null;
+
+  return (
+    <div className="relative z-10 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
+      <p className="mb-1 font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+        Grounded with Google Search — sources
+      </p>
+      <ul className="space-y-0.5">
+        {items.map((c, i) => (
+          <li key={`${c.url}-${i}`} className="truncate">
+            <a
+              href={c.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-violet-600 hover:underline dark:text-violet-400"
+            >
+              {c.title || c.url}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

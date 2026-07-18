@@ -78,19 +78,51 @@ export interface RoadmapTree {
   notes?: string;
 }
 
+export interface MatchPairItem {
+  id: string;
+  left: string;
+  right: string;
+}
+
+/** Duolingo-style mini-game. `match_pairs` is the only implemented type so far. */
+export interface InteractiveWidget {
+  type: "match_pairs";
+  prompt?: string;
+  data: MatchPairItem[];
+}
+
+export interface Citation {
+  title: string;
+  url: string;
+}
+
 export interface Slide {
   id: string;
   title: string;
-  body: string;
+  /** Primary educational text shown on the slide. */
+  text_content: string;
+  /**
+   * @deprecated Pre-Phase-5 field name for `text_content`. Kept optional so
+   * lessons generated before this migration keep rendering.
+   */
+  body?: string;
   callout?: string;
   visual_hint?: string;
   speaker_notes?: string;
+  /** Conversational script written for Text-to-Speech playback, distinct from `text_content`. */
+  spoken_narration?: string;
+  /** Semantic tag (e.g. "celebration", "bouncing_math_equation") mapped to a Lottie animation. */
+  animation_prompt?: string;
+  /** Mini-game that halts progression until the learner completes it. */
+  interactive_widget?: InteractiveWidget;
 }
 
 export interface SlideContent {
   type: "slideshow";
   slides: Slide[];
   estimated_minutes?: number;
+  /** Real source URLs from Google Search grounding — never model-generated. */
+  citations?: Citation[];
 }
 
 export interface CheatSheetContent {
