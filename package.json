@@ -9,6 +9,7 @@
     "lint": "eslint",
     "env:check": "tsx scripts/verify-env.ts",
     "gemini:check": "node --env-file=.env.local -r tsx/cjs scripts/verify-gemini-models.ts",
+    "debug:lesson": "node --env-file=.env.local -r ./scripts/_stub-server-only.cjs -r tsx/cjs scripts/debug-lesson-gen.ts",
     "plan:set": "node --env-file=.env.local -r tsx/cjs scripts/set-plan-tier.ts",
     "cap:sync": "npx cap sync",
     "cap:open:android": "npx cap open android",

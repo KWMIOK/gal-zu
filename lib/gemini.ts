@@ -158,6 +158,19 @@ async function generateStructuredJson(
       return validated.data;
     } catch (error) {
       lastError = error;
+      // This used to be swallowed entirely until every candidate was
+      // exhausted, which made "silently fell back to placeholder content"
+      // indistinguishable from "everything is fine" in prod logs. Log each
+      // candidate's failure reason (schema mismatch vs API error vs empty
+      // response) so a bad prompt/schema combo is visible immediately
+      // instead of only showing up as generic filler content to the user.
+      const reason =
+        error instanceof GeminiEngineError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      console.warn(`[gemini] generateStructuredJson failed for model ${model}: ${reason.slice(0, 500)}`);
     }
   }
 
@@ -256,8 +269,16 @@ function ensureId(prefix: string, value?: string): string {
   return value && value.trim().length > 0 ? value : `${prefix}_${randomUUID()}`;
 }
 
+/** Accepts Gemini's raw (id-less) roadmap shape as well as an already-normalized one. */
+type LenientRoadmapModule = Omit<RoadmapModule, "id"> & { id?: string };
+type LenientRoadmapPhase = Omit<RoadmapPhase, "id" | "modules"> & {
+  id?: string;
+  modules: LenientRoadmapModule[];
+};
+type LenientRoadmapTree = Omit<RoadmapTree, "phases"> & { phases: LenientRoadmapPhase[] };
+
 export function normalizeRoadmapTree(
-  tree: RoadmapTree,
+  tree: LenientRoadmapTree,
   fallbackTitle: string,
 ): RoadmapTree {
   const phases: RoadmapPhase[] = tree.phases.map((phase, phaseIndex) => {
@@ -602,18 +623,40 @@ Return ONLY valid JSON matching this shape:
   "scope_type": "micro" | "unit" | "macro",
   "title": string,
   "description": string,
-  "roadmap_tree": { "version": 1, "phases": [...] },
+  "roadmap_tree": {
+    "version": 1,
+    "phases": [
+      {
+        "title": string,
+        "description": string (optional, 1 sentence on what this phase covers),
+        "modules": [
+          { "title": string, "description": string (optional), "estimated_minutes": number (optional) },
+          ...
+        ]
+      },
+      ...
+    ]
+  },
   "first_lesson": { "title": string, "topic": string, "format": "slideshow"|"cheat_sheet"|"quiz"|"script" }
 }
+Do NOT include "id" fields anywhere in roadmap_tree — the app generates those itself.
 
 CRITICAL TITLE RULES:
 - "title" MUST be a short course name derived ONLY from the learner topic (max ~8 words).
 - NEVER include depth/time strings, colons about preferences, or metadata in title/topic fields.
 - "first_lesson.topic" MUST equal the clean learner topic exactly.
 
+CRITICAL — MAKE THE ROADMAP TOPIC-SPECIFIC, NOT GENERIC:
+- Every phase/module title MUST reference concrete subject matter of "${cleanTopic}" itself — never generic
+  placeholders like "Introduction to X", "Core lesson", "Fundamentals", or "Getting started". Name the actual
+  sub-topics a real curriculum would cover (e.g. for a language: specific grammar tenses, specific vocab
+  categories, specific script/phonetics milestones; for a science topic: specific laws/theorems/mechanisms).
+
 Scope rules:
-- quick_answer depth: scope_type MUST be "micro" (one lesson path, 5–6 slides).
-- complete_mastery depth: scope_type MUST be "macro" with 4–6 modules across multiple phases (e.g., alphabet, greetings, grammar, verbs). Each module needs a specific title.
+- quick_answer depth: scope_type MUST be "micro" — still ONE lesson/module, but its title must name the specific
+  angle this single lesson takes on "${cleanTopic}" (not just "Introduction to <topic>" restated).
+- complete_mastery depth: scope_type MUST be "macro" with 4–6 modules across multiple phases, each with a distinct,
+  concrete, topic-specific title/description reflecting real curriculum progression for "${cleanTopic}" specifically.
 - unit: ~1 week path
 ${buildProfileAdaptationInstructions(profile)}`;
 

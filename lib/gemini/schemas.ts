@@ -9,8 +9,15 @@ export const lessonFormatSchema = z.enum([
   "script",
 ]);
 
+// `id` is intentionally optional here: Gemini is never asked to invent one
+// (see the classifyAndBuildRoadmap prompt), and `normalizeRoadmapTree` /
+// `ensureId` in lib/gemini.ts always backfill a real UUID afterward. Making
+// this required was the actual root cause of every classification call
+// failing validation on every model, 100% of the time, silently falling
+// back to the generic "Introduction to X" template — never enforce a field
+// here that the prompt doesn't explicitly request from the model.
 export const roadmapModuleSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).optional(),
   title: z.string().min(1),
   description: z.string().optional(),
   estimated_minutes: z.number().int().positive().optional(),
@@ -19,7 +26,7 @@ export const roadmapModuleSchema = z.object({
 });
 
 export const roadmapPhaseSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).optional(),
   title: z.string().min(1),
   description: z.string().optional(),
   estimated_weeks: z.number().positive().optional(),
