@@ -1,18 +1,22 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, HelpCircle, Loader2, XCircle } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, ChevronRight, HelpCircle, Loader2, XCircle } from "lucide-react";
 
 import { fetchQuizHintAction } from "@/app/actions/lessons";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { QuizContent } from "@/types/database";
+import type { FinishedCta } from "@/components/lessons/slide-deck-viewer";
 
 export function QuizViewer({
   content,
   onComplete,
+  finishedCta,
 }: {
   content: QuizContent;
   onComplete?: () => void;
+  finishedCta?: FinishedCta;
 }) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -74,6 +78,30 @@ export function QuizViewer({
         <p className="text-zinc-600 dark:text-zinc-400">
           Score: {correctCount}/{content.questions.length} ({pct}%)
         </p>
+        {passed && finishedCta ? (
+          <Link
+            href={finishedCta.href}
+            className="mt-2 inline-flex items-center gap-1 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500"
+          >
+            {finishedCta.label} <ChevronRight className="h-4 w-4" />
+          </Link>
+        ) : null}
+        {!passed ? (
+          <button
+            type="button"
+            onClick={() => {
+              setIndex(0);
+              setSelected(null);
+              setFeedback(null);
+              setHint(null);
+              setCorrectCount(0);
+              setDone(false);
+            }}
+            className="mt-2 inline-flex items-center gap-1 rounded-xl border border-zinc-200 px-5 py-2.5 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900/50"
+          >
+            Retake quiz
+          </button>
+        ) : null}
       </GlassCard>
     );
   }

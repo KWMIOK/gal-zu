@@ -14,9 +14,9 @@ import {
   type GeminiGenerationContext,
 } from "@/lib/generation/prompt";
 import {
-  ensureMacroRoadmapScale,
-  isMasteryPath,
-  isQuickAnswerPath,
+  DEPTH_TIER_CONFIG,
+  ensureRoadmapScale,
+  resolveDepthTier,
 } from "@/lib/gemini/lesson-plans";
 import {
   courseClassificationSchema,
@@ -327,13 +327,9 @@ function fallbackClassification(
   const clean = sanitizeLearnerTopic(topic);
   const title =
     clean.length > 80 ? `${clean.slice(0, 77).trim()}…` : clean;
-  const baseScope =
-    context?.sessionLength === "multi_week" ||
-    context?.depth === "complete_mastery"
-      ? "macro"
-      : context?.depth === "quick_answer"
-        ? "micro"
-        : "micro";
+  const tier = resolveDepthTier(context);
+  const tierConfig = tier === "quick_answer" ? null : DEPTH_TIER_CONFIG[tier];
+  const baseScope = tierConfig?.scopeType ?? "micro";
 
   let roadmap_tree = normalizeRoadmapTree(
     {
@@ -341,7 +337,7 @@ function fallbackClassification(
       phases: [
         {
           id: ensureId("phase"),
-          title: baseScope === "macro" ? "Phase 1: Foundations" : "Core lesson",
+          title: tierConfig ? "Phase 1: Foundations" : "Core lesson",
           order: 0,
           modules: [
             {
@@ -357,8 +353,8 @@ function fallbackClassification(
     title || "Quick lesson",
   );
 
-  if (baseScope === "macro") {
-    roadmap_tree = ensureMacroRoadmapScale(roadmap_tree, clean);
+  if (tierConfig) {
+    roadmap_tree = ensureRoadmapScale(roadmap_tree, clean, tierConfig);
   }
 
   return applyScopeScaling(
@@ -401,132 +397,35 @@ function applyScopeScaling(
   cleanTopic: string,
   context?: GeminiGenerationContext,
 ): CourseClassificationResult {
-  if (isMasteryPath(context)) {
-    return {
-      ...result,
-      scope_type: "macro",
-      roadmap_tree: ensureMacroRoadmapScale(result.roadmap_tree, cleanTopic),
-    };
+  const tier = resolveDepthTier(context);
+  if (tier === "quick_answer") {
+    return { ...result, scope_type: "micro" };
   }
-  if (isQuickAnswerPath(context)) {
-    return {
-      ...result,
-      scope_type: "micro",
-    };
-  }
-  return result;
+
+  const config = DEPTH_TIER_CONFIG[tier];
+  return {
+    ...result,
+    scope_type: config.scopeType,
+    roadmap_tree: ensureRoadmapScale(result.roadmap_tree, cleanTopic, config),
+  };
 }
 
 function fallbackSlideshow(topic: string): SlideContent {
   const clean = sanitizeLearnerTopic(topic);
-  const normalized = clean.toLowerCase();
 
-  if (normalized === "1+1" || normalized === "1 + 1") {
-    return {
-      type: "slideshow",
-      estimated_minutes: 3,
-      slides: [
-        {
-          id: ensureId("slide"),
-          title: "Addition as combining sets",
-          text_content:
-            "1 + 1 means one unit combined with one unit. In set terms: {●} ∪ {●} has cardinality 2. Equation: 1 + 1 = 2.",
-          spoken_narration:
-            "One plus one means combining one thing with one more thing. If you have one dot, and you add one more dot, you now have two dots. That's the equation one plus one equals two.",
-          callout: "Binary: 1₂ + 1₂ = 10₂ (which is 2 in decimal).",
-          animation_prompt: "bouncing_math_equation",
-        },
-        {
-          id: ensureId("slide"),
-          title: "Number line & counting",
-          text_content: "Start at 1, move +1 step → you land on 2. Visually: • + • = ••.",
-          spoken_narration:
-            "Picture a number line. Start on one. Take one step forward. Now you're standing on two.",
-          visual_hint: "Count aloud: one … two.",
-          animation_prompt: "bouncing_math_equation",
-        },
-        {
-          id: ensureId("slide"),
-          title: "Practice: match the equation",
-          text_content: "Match each expression to its correct value before moving on.",
-          spoken_narration: "Let's practice. Match each equation on the left to its correct answer on the right.",
-          animation_prompt: "thinking",
-          interactive_widget: {
-            type: "match_pairs",
-            prompt: "Match each equation to its value:",
-            data: [
-              { id: "m1", left: "1 + 1", right: "2" },
-              { id: "m2", left: "1₂ + 1₂ (binary)", right: "10₂" },
-              { id: "m3", left: "2 − 1", right: "1" },
-            ],
-          },
-        },
-        {
-          id: ensureId("slide"),
-          title: "Pitfalls & takeaways",
-          text_content:
-            "Common mistake: treating '+' as concatenation (1+1 ≠ 11). Takeaway: '+' always means add quantities, so 1+1=2.",
-          spoken_narration:
-            "A common mistake is reading one plus one as if it were the number eleven. Remember: the plus sign always means add quantities together, so one plus one equals two.",
-          animation_prompt: "success_checkmark",
-        },
-      ],
-    };
-  }
-
-  if (/georgian|kartvelian|mkhedruli|anbani/i.test(clean)) {
-    return {
-      type: "slideshow",
-      estimated_minutes: 8,
-      slides: [
-        {
-          id: ensureId("slide"),
-          title: "Georgian script (Mkhedruli)",
-          text_content:
-            "Modern Georgian uses Mkhedruli: 33 letters, no uppercase. Example letters: ა (a), ბ (b), გ (g), დ (d), ე (e).",
-          spoken_narration:
-            "Modern Georgian is written in the Mkhedruli script, which has thirty-three letters and no uppercase forms. Here are a few: ah, buh, guh, duh, eh.",
-          callout: "Gamarjoba (გამარჯობა) = Hello.",
-          animation_prompt: "lightbulb_idea",
-        },
-        {
-          id: ensureId("slide"),
-          title: "First words & pronunciation",
-          text_content:
-            "Gamarjoba [gɑmɑrdʒɔbɑ] — hello. Madloba (მადლობა) — thank you. Nakhvamdis (ნახვამდის) — goodbye. Georgian is a Kartvelian language — not Indo-European.",
-          spoken_narration:
-            "Gamarjoba means hello. Madloba means thank you. Nakhvamdis means goodbye. Georgian belongs to the Kartvelian language family, unrelated to English.",
-          animation_prompt: "thinking",
-        },
-        {
-          id: ensureId("slide"),
-          title: "Practice: match the words",
-          text_content: "Match each Georgian word to its English meaning.",
-          spoken_narration: "Time to practice. Match each Georgian word to its English translation.",
-          animation_prompt: "thinking",
-          interactive_widget: {
-            type: "match_pairs",
-            prompt: "Match the Georgian word to its meaning:",
-            data: [
-              { id: "g1", left: "Gamarjoba", right: "Hello" },
-              { id: "g2", left: "Madloba", right: "Thank you" },
-              { id: "g3", left: "Nakhvamdis", right: "Goodbye" },
-            ],
-          },
-        },
-        {
-          id: ensureId("slide"),
-          title: "Starter grammar pitfall",
-          text_content:
-            "Georgian verbs mark the subject with suffixes; word order is flexible but SOV is common. Pitfall: assuming 1:1 English word order. Takeaway: learn letter–sound pairs first, then phrase chunks.",
-          spoken_narration:
-            "Georgian verbs mark who's doing the action with suffixes, and word order is flexible, though subject-object-verb is common. Don't assume English word order maps directly — learn letter-sound pairs first, then whole phrases.",
-          animation_prompt: "success_checkmark",
-        },
-      ],
-    };
-  }
-
+  // NOTE: this function is a last-resort safety net, hit only when Gemini
+  // generation fails for every model candidate (see generateLessonPayload's
+  // catch block). It intentionally does NOT special-case specific topics
+  // (e.g. "Georgian", "1+1") anymore — a hardcoded deck matched by a topic
+  // *keyword* used to be returned byte-for-byte identical for every lesson
+  // in a course whose topic string contained that keyword (e.g. all 8
+  // lessons of a "Georgian" mastery course, since every one of their topic
+  // strings contains the word "Georgian"), which is exactly what caused
+  // "every lesson looks the same" when a burst of 8 back-to-back generation
+  // calls tripped rate limits partway through. Always derive fallback
+  // content from the *full* per-lesson topic string (which already differs
+  // per module/angle — see buildLessonPlans) so even failure-mode output
+  // stays distinct lesson-to-lesson.
   return {
     type: "slideshow",
     estimated_minutes: 5,
@@ -652,12 +551,18 @@ CRITICAL — MAKE THE ROADMAP TOPIC-SPECIFIC, NOT GENERIC:
   sub-topics a real curriculum would cover (e.g. for a language: specific grammar tenses, specific vocab
   categories, specific script/phonetics milestones; for a science topic: specific laws/theorems/mechanisms).
 
-Scope rules:
-- quick_answer depth: scope_type MUST be "micro" — still ONE lesson/module, but its title must name the specific
-  angle this single lesson takes on "${cleanTopic}" (not just "Introduction to <topic>" restated).
-- complete_mastery depth: scope_type MUST be "macro" with 4–6 modules across multiple phases, each with a distinct,
-  concrete, topic-specific title/description reflecting real curriculum progression for "${cleanTopic}" specifically.
-- unit: ~1 week path
+Scope rules (four depth tiers — pick modules WITHIN the given range based on how much a real curriculum on
+"${cleanTopic}" specifically needs, not always the same count regardless of topic):
+- quick_answer: scope_type "micro" — still ONE lesson/module, but its title must name the specific angle this
+  single lesson takes on "${cleanTopic}" (not just "Introduction to <topic>" restated).
+- overview: scope_type "unit" — 2 to 4 modules. Use the low end for genuinely narrow topics (e.g. one theorem, one
+  historical event) and the high end for topics with several distinct sub-areas.
+- deep_dive: scope_type "unit" — 4 to 7 modules covering the topic properly, including nuance and practice.
+- complete_mastery: scope_type "macro" — 5 to 14 modules across multiple phases. A narrow topic (e.g. "the
+  Pythagorean theorem") should still land near the low end even at this tier; a genuinely vast topic (e.g. "learn
+  Japanese from scratch", "master calculus") should use significantly more of the range — a whole language or field
+  cannot be honestly covered in 5 modules, so do not default there just because it's a round number. Every module
+  needs a distinct, concrete, topic-specific title/description reflecting real curriculum progression.
 ${buildProfileAdaptationInstructions(profile)}`;
 
   const userPrompt = [

@@ -21,13 +21,14 @@ export {
  * components.
  *
  * This is the actual cost-control mechanism, independent of any billing
- * UI: a "Complete mastery" course can legitimately spend 9-13 calls in one
- * burst (1 classification + up to 6 modules x 2 lessons — see
- * `ensureMacroRoadmapScale` / `buildLessonPlans`), so the cap is checked
- * *before* starting a course (reject if already at/over budget for the
- * day) rather than metered mid-burst. Worst case, one mastery course can
- * push a user slightly over their daily budget in a single request; it
- * cannot repeat that same-day once they're over.
+ * UI. Every real Gemini call — the classification call, and each
+ * individual lesson, whether generated eagerly (lesson 1) or lazily later
+ * (see `lib/generation/lazy.ts`) — checks this cap right before it runs,
+ * rather than once per course. A "complete_mastery" course can plan up to
+ * ~28 lessons (see `DEPTH_TIER_CONFIG` in `lib/gemini/lesson-plans.ts`),
+ * but only pays for however many the learner actually opens: most of the
+ * cost is spread out over however many days it takes them to work through
+ * it, not spent in one request.
  */
 const ROLLING_WINDOW_HOURS = 24;
 

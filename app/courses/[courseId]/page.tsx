@@ -8,7 +8,6 @@ import { RoadmapTimeline } from "@/components/courses/roadmap-timeline";
 import { GlassCard } from "@/components/ui/glass-card";
 import { getActiveLessonId, computeCourseProgress } from "@/lib/course-progress";
 import { flatModuleLabels } from "@/lib/course-roadmap";
-import { lessonsPerModuleForScope } from "@/lib/gemini/lesson-plans";
 import {
   getCourseById,
   listLessonsForCourse,
@@ -30,7 +29,15 @@ export default async function CoursePage({
   const { percent, completed, total } = computeCourseProgress(lessons);
   const activeLessonId = getActiveLessonId(lessons);
   const tree = course.roadmap_tree;
-  const lessonsPerModule = lessonsPerModuleForScope(course.scope_type);
+  const moduleLabels = tree ? flatModuleLabels(tree) : [];
+  // Derived from actual counts rather than a scope_type lookup table — depth
+  // tiers no longer map 1:1 to a single lessons-per-module ratio (e.g.
+  // "overview" and "deep_dive" both use scope_type "unit" but generate a
+  // different number of lessons per module).
+  const lessonsPerModule =
+    moduleLabels.length > 0
+      ? Math.max(1, Math.round(lessons.length / moduleLabels.length))
+      : 1;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10">
@@ -88,7 +95,7 @@ export default async function CoursePage({
             courseId={courseId}
             activeLessonId={activeLessonId}
             lessonsPerModule={lessonsPerModule}
-            moduleLabels={flatModuleLabels(tree)}
+            moduleLabels={moduleLabels}
           />
         </section>
       ) : (

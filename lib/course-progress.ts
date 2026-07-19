@@ -24,3 +24,13 @@ export function getActiveLessonId(lessons: Lesson[]): string | null {
 
   return lessons[lessons.length - 1].id;
 }
+
+/** The lesson immediately after `currentLessonId` in course order, or null if it's the last one. */
+export function getNextLessonId(
+  lessons: Lesson[],
+  currentLessonId: string,
+): string | null {
+  const index = lessons.findIndex((l) => l.id === currentLessonId);
+  if (index === -1) return null;
+  return lessons[index + 1]?.id ?? null;
+}

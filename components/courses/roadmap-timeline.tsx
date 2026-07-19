@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Circle, Lock, PlayCircle } from "lucide-react";
+import { CheckCircle2, Circle, Lock, PlayCircle, Sparkles } from "lucide-react";
 
 import { GlassCard } from "@/components/ui/glass-card";
 import type { Lesson } from "@/types/database";
@@ -86,6 +86,11 @@ export function RoadmapTimeline({
               <p className="text-xs text-zinc-500">
                 Lesson {index + 1} · {lesson.format.replace("_", " ")}
                 {lesson.is_completed ? " · Done" : ""}
+                {status !== "locked" && lesson.generation_status !== "ready" ? (
+                  <span className="ml-1 inline-flex items-center gap-0.5 text-violet-500 dark:text-violet-400">
+                    <Sparkles className="h-3 w-3" /> Builds on open
+                  </span>
+                ) : null}
               </p>
             </div>
             {status !== "locked" ? (

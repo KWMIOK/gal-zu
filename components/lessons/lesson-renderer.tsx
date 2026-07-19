@@ -1,10 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, PartyPopper } from "lucide-react";
 
-import { completeLessonAction } from "@/app/actions/lessons";
+import {
+  completeLessonAction,
+  prefetchNextLessonAction,
+} from "@/app/actions/lessons";
 import { DeleteLessonButton } from "@/components/lessons/delete-lesson-button";
 import {
   CheatSheetViewer,
@@ -23,11 +26,18 @@ import type {
 export function LessonRenderer({
   lesson,
   courseId,
+  nextLessonId,
 }: {
   lesson: Lesson;
   courseId: string;
+  /** The next lesson in course order, or null if this is the last one / a solo course. */
+  nextLessonId?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    prefetchNextLessonAction(courseId).catch(() => {});
+  }, [courseId, lesson.id]);
 
   function markComplete() {
     startTransition(async () => {
@@ -36,6 +46,20 @@ export function LessonRenderer({
   }
 
   const payload = lesson.content_payload;
+  if (!payload) {
+    // The page component is responsible for generating content before
+    // rendering this — reaching here with no payload means something
+    // unexpected slipped through, so fail loudly-ish rather than crash on
+    // `payload.type`.
+    return (
+      <p className="text-sm text-zinc-500">
+        This lesson has no content yet. Try reopening it.
+      </p>
+    );
+  }
+  const finishedCta = nextLessonId
+    ? { href: `/courses/${courseId}/lessons/${nextLessonId}`, label: "Next lesson" }
+    : { href: `/courses/${courseId}`, label: "Course complete — view roadmap" };
 
   return (
     <div className="space-y-6">
@@ -63,9 +87,27 @@ export function LessonRenderer({
               {pending ? "Saving…" : "Mark complete"}
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
-              <CheckCircle2 className="h-4 w-4" /> Completed
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" /> Completed
+              </span>
+              {payload.type === "cheat_sheet" || payload.type === "script" ? (
+                <Link
+                  href={finishedCta.href}
+                  className="inline-flex items-center gap-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+                >
+                  {nextLessonId ? (
+                    <>
+                      {finishedCta.label} <ChevronRight className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      <PartyPopper className="h-4 w-4" /> {finishedCta.label}
+                    </>
+                  )}
+                </Link>
+              ) : null}
+            </>
           )}
         </div>
       </div>
@@ -81,6 +123,8 @@ export function LessonRenderer({
         <SlideDeckViewer
           content={payload as SlideContent}
           onFinish={markComplete}
+          finishedCta={finishedCta}
+          alreadyCompleted={lesson.is_completed}
         />
       ) : null}
       {payload.type === "cheat_sheet" ? (
@@ -90,6 +134,7 @@ export function LessonRenderer({
         <QuizViewer
           content={payload as QuizContent}
           onComplete={markComplete}
+          finishedCta={finishedCta}
         />
       ) : null}
       {payload.type === "script" ? (

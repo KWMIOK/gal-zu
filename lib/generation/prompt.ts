@@ -42,12 +42,22 @@ export function buildScopeHints(
 
   if (options?.depth === "quick_answer") {
     lines.push(
-      "Depth goal: quick_answer — one concise lesson path, minimal modules.",
+      "Depth goal: quick_answer — one concise lesson answering the topic directly, no roadmap.",
+    );
+  }
+  if (options?.depth === "overview") {
+    lines.push(
+      "Depth goal: overview — a short guided tour hitting the handful of ideas someone genuinely needs for a solid working understanding, not exhaustive coverage.",
+    );
+  }
+  if (options?.depth === "deep_dive") {
+    lines.push(
+      "Depth goal: deep_dive — a substantial multi-module course covering the topic properly, including nuance and practice, without necessarily reaching full mastery.",
     );
   }
   if (options?.depth === "complete_mastery") {
     lines.push(
-      "Depth goal: complete_mastery — thorough phased roadmap and deeper modules.",
+      "Depth goal: complete_mastery — the full curriculum a real course on this topic would need, as many phases/modules as the topic genuinely requires.",
     );
   }
   if (options?.sessionLength === "5min") {

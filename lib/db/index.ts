@@ -9,6 +9,8 @@ import {
   type CourseInsert,
   type GenerationEvent,
   type Lesson,
+  type LessonContentPayload,
+  type LessonGenerationStatus,
   type LessonInsert,
   type PlanTier,
   type SubscriptionStatus,
@@ -184,7 +186,7 @@ export async function listLessonsForCourse(
     .from("lessons")
     .select("*")
     .eq("course_id", courseId)
-    .order("created_at", { ascending: true });
+    .order("order_index", { ascending: true });
 
   if (error) {
     throw new DbError(`listLessonsForCourse: ${error.message}`, error);
@@ -217,19 +219,89 @@ export async function createLesson(input: LessonInsert): Promise<Lesson> {
     throw new DbError("Course not found or access denied.");
   }
 
+  const contentPayload = input.content_payload ?? null;
+
   const result = await supabase
     .from("lessons")
     .insert({
       course_id: input.course_id,
       title: input.title,
       format: input.format,
-      content_payload: input.content_payload,
+      order_index: input.order_index,
+      content_payload: contentPayload,
+      generation_status:
+        input.generation_status ?? (contentPayload ? "ready" : "pending"),
+      generation_plan: input.generation_plan ?? null,
       is_completed: input.is_completed ?? false,
     })
     .select()
     .single();
 
   return throwOnError(result, "createLesson") as Lesson;
+}
+
+/**
+ * Atomically flips a `pending` or `failed` lesson to `generating` — the
+ * guard against a background prefetch (see `prefetchNextPendingLesson`) and
+ * a learner opening that same lesson racing each other into two Gemini
+ * calls for the same row. Returns `null` if someone else already claimed
+ * it (or it's already `ready`/being generated), in which case the caller
+ * should just re-read the row instead of generating anything.
+ */
+export async function tryClaimLessonForGeneration(
+  lessonId: string,
+): Promise<Lesson | null> {
+  const { supabase, userId } = await getAuthedSupabase();
+
+  const lesson = await getLessonById(lessonId);
+  if (!lesson) {
+    throw new DbError("Lesson not found.");
+  }
+  const course = await getCourseById(lesson.course_id);
+  if (!course || course.user_id !== userId) {
+    throw new DbError("Access denied.");
+  }
+
+  const { data, error } = await supabase
+    .from("lessons")
+    .update({ generation_status: "generating" })
+    .eq("id", lessonId)
+    .in("generation_status", ["pending", "failed"])
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    throw new DbError(`tryClaimLessonForGeneration: ${error.message}`, error);
+  }
+
+  return (data as Lesson | null) ?? null;
+}
+
+/** Persists the outcome of a lazy/background generation attempt for one lesson. */
+export async function saveGeneratedLessonContent(
+  lessonId: string,
+  contentPayload: LessonContentPayload | null,
+  status: LessonGenerationStatus,
+): Promise<Lesson> {
+  const { supabase, userId } = await getAuthedSupabase();
+
+  const lesson = await getLessonById(lessonId);
+  if (!lesson) {
+    throw new DbError("Lesson not found.");
+  }
+  const course = await getCourseById(lesson.course_id);
+  if (!course || course.user_id !== userId) {
+    throw new DbError("Access denied.");
+  }
+
+  const result = await supabase
+    .from("lessons")
+    .update({ content_payload: contentPayload, generation_status: status })
+    .eq("id", lessonId)
+    .select()
+    .single();
+
+  return throwOnError(result, "saveGeneratedLessonContent") as Lesson;
 }
 
 export async function markLessonCompleted(

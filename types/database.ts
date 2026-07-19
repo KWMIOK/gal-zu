@@ -225,13 +225,38 @@ export interface Course {
   updated_at: string;
 }
 
+/**
+ * Everything needed to actually generate a lesson's content later, without
+ * re-deriving it from the course/roadmap — stashed on `pending` lesson rows
+ * at course-creation time (see lib/generation/lesson-planning.ts) so lazy
+ * generation (lib/generation/lazy.ts) can call `generateLessonPayload`
+ * exactly as if it were running eagerly.
+ */
+export type LessonGenerationPlan = {
+  topic: string;
+  context: string;
+  slideMin: number;
+  slideMax: number;
+};
+
+/**
+ * 'pending': placeholder row, not generated yet — `content_payload` is null.
+ * 'generating': claimed by an in-flight generation call (prevents double-spend on races).
+ * 'ready': `content_payload` has real (or fallback) content.
+ * 'failed': generation was attempted and blocked (e.g. quota) — retry on next open.
+ */
+export type LessonGenerationStatus = "pending" | "generating" | "ready" | "failed";
+
 export interface Lesson {
   id: string;
   course_id: string;
   title: string;
   format: LessonFormat;
-  content_payload: LessonContentPayload;
+  content_payload: LessonContentPayload | null;
   is_completed: boolean;
+  generation_status: LessonGenerationStatus;
+  generation_plan: LessonGenerationPlan | null;
+  order_index: number;
   created_at: string;
   updated_at: string;
 }
@@ -272,7 +297,11 @@ export type LessonInsert = {
   course_id: string;
   title: string;
   format: LessonFormat;
-  content_payload: LessonContentPayload;
+  order_index: number;
+  /** Omit (or pass null) for a 'pending' placeholder — pair with `generation_plan`. */
+  content_payload?: LessonContentPayload | null;
+  generation_status?: LessonGenerationStatus;
+  generation_plan?: LessonGenerationPlan | null;
   is_completed?: boolean;
 };
 
@@ -376,7 +405,10 @@ export type Database = {
           course_id: string;
           title: string;
           format: LessonFormat;
-          content_payload: LessonContentPayload;
+          order_index?: number;
+          content_payload?: LessonContentPayload | null;
+          generation_status?: LessonGenerationStatus;
+          generation_plan?: LessonGenerationPlan | null;
           is_completed?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -386,7 +418,10 @@ export type Database = {
           course_id?: string;
           title?: string;
           format?: LessonFormat;
-          content_payload?: LessonContentPayload;
+          order_index?: number;
+          content_payload?: LessonContentPayload | null;
+          generation_status?: LessonGenerationStatus;
+          generation_plan?: LessonGenerationPlan | null;
           is_completed?: boolean;
           created_at?: string;
           updated_at?: string;

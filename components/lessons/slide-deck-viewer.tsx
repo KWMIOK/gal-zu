@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Expand,
@@ -17,18 +19,27 @@ import { TtsControls } from "@/components/lessons/tts-controls";
 import { useSpeechSynthesis } from "@/lib/tts/use-speech-synthesis";
 import type { SlideContent } from "@/types/database";
 
+export type FinishedCta = { href: string; label: string };
+
 export function SlideDeckViewer({
   content,
   onFinish,
+  finishedCta,
+  alreadyCompleted,
 }: {
   content: SlideContent;
   onFinish?: () => void;
+  /** Where "finish lesson" should take the learner next — see LessonRenderer. */
+  finishedCta?: FinishedCta;
+  /** True if this lesson was already completed before this page loaded (revisit). */
+  alreadyCompleted?: boolean;
 }) {
   const slides = content.slides;
   const [index, setIndex] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [solvedWidgets, setSolvedWidgets] = useState<Set<string>>(new Set());
+  const [finished, setFinished] = useState(Boolean(alreadyCompleted));
   const tts = useSpeechSynthesis();
   const slide = slides[index];
   const progress = ((index + 1) / slides.length) * 100;
@@ -80,13 +91,18 @@ export function SlideDeckViewer({
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "ArrowRight") {
         if (widgetLocked) return;
-        if (isLastSlide) onFinish?.();
-        else goNext();
+        if (isLastSlide) {
+          tts.stop();
+          onFinish?.();
+          setFinished(true);
+        } else {
+          goNext();
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goNext, goPrev, isLastSlide, onFinish, widgetLocked]);
+  }, [goNext, goPrev, isLastSlide, onFinish, tts, widgetLocked]);
 
   async function toggleFullscreen() {
     const el = document.getElementById("slide-deck-root");
@@ -112,6 +128,7 @@ export function SlideDeckViewer({
     if (isLastSlide) {
       tts.stop();
       onFinish?.();
+      setFinished(true);
       return;
     }
     goNext();
@@ -119,6 +136,7 @@ export function SlideDeckViewer({
 
   const primaryLabel = isLastSlide ? "Finish lesson" : "Next";
   const primaryDisabled = (isLastSlide && !onFinish) || widgetLocked;
+  const showFinishedCta = isLastSlide && finished && finishedCta;
 
   return (
     <div id="slide-deck-root" className="relative space-y-4">
@@ -222,25 +240,39 @@ export function SlideDeckViewer({
 
       <CitationsFooter citations={content.citations} />
 
-      <div className="relative z-10 flex justify-between gap-3">
-        <button
-          type="button"
-          onClick={goPrev}
-          disabled={index === 0}
-          className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700"
-        >
-          <ChevronLeft className="h-4 w-4" /> Previous
-        </button>
-        <button
-          type="button"
-          onClick={handlePrimaryAction}
-          disabled={primaryDisabled}
-          title={widgetLocked ? "Complete the activity above to continue" : undefined}
-          className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {primaryLabel} <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      {showFinishedCta ? (
+        <div className="relative z-10 flex flex-col items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center dark:border-emerald-900 dark:bg-emerald-950/40">
+          <p className="inline-flex items-center gap-2 font-medium text-emerald-800 dark:text-emerald-200">
+            <CheckCircle2 className="h-5 w-5" /> Lesson complete!
+          </p>
+          <Link
+            href={finishedCta.href}
+            className="inline-flex items-center gap-1 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500"
+          >
+            {finishedCta.label} <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : (
+        <div className="relative z-10 flex justify-between gap-3">
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={index === 0}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700"
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </button>
+          <button
+            type="button"
+            onClick={handlePrimaryAction}
+            disabled={primaryDisabled}
+            title={widgetLocked ? "Complete the activity above to continue" : undefined}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {primaryLabel} <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,9 +5,10 @@
  * the new per-candidate logging in generateStructuredJson, *why* each model
  * candidate failed if it did.
  *
- * Usage: node --env-file=.env.local -r ./scripts/_stub-server-only.cjs -r tsx/cjs scripts/debug-lesson-gen.ts "topic here" [quick_answer|complete_mastery]
+ * Usage: node --env-file=.env.local -r ./scripts/_stub-server-only.cjs -r tsx/cjs scripts/debug-lesson-gen.ts "topic here" [quick_answer|overview|deep_dive|complete_mastery]
  */
 import { classifyAndBuildRoadmap, generateLessonPayload } from "../lib/gemini";
+import type { PromptDepth } from "../lib/generation/create-course";
 import {
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
@@ -15,7 +16,7 @@ import {
 } from "../types/database";
 
 const topic = process.argv[2] ?? "Arabic language";
-const depth = (process.argv[3] as "quick_answer" | "complete_mastery") ?? "quick_answer";
+const depth = (process.argv[3] as PromptDepth) ?? "quick_answer";
 
 const fakeProfile: UserProfile = {
   id: "debug_user",

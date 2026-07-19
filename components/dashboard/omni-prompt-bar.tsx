@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
+  BookOpen,
   Clock,
+  Compass,
   GraduationCap,
   Loader2,
   Sparkles,
@@ -25,9 +27,36 @@ import {
 } from "@/lib/generation/quota-shared";
 import { GlassCard } from "@/components/ui/glass-card";
 
-const depthOptions: { id: PromptDepth; label: string; icon: typeof Zap }[] = [
-  { id: "quick_answer", label: "Quick answer", icon: Zap },
-  { id: "complete_mastery", label: "Complete mastery", icon: GraduationCap },
+const depthOptions: {
+  id: PromptDepth;
+  label: string;
+  icon: typeof Zap;
+  hint: string;
+}[] = [
+  {
+    id: "quick_answer",
+    label: "Quick answer",
+    icon: Zap,
+    hint: "One focused lesson, right now.",
+  },
+  {
+    id: "overview",
+    label: "Overview",
+    icon: Compass,
+    hint: "A short guided tour — a few lessons.",
+  },
+  {
+    id: "deep_dive",
+    label: "Deep dive",
+    icon: BookOpen,
+    hint: "A proper multi-module course.",
+  },
+  {
+    id: "complete_mastery",
+    label: "Complete mastery",
+    icon: GraduationCap,
+    hint: "The full curriculum — as many modules as the topic really needs.",
+  },
 ];
 
 const sessionOptions: {
@@ -140,6 +169,7 @@ export function OmniPromptBar({
                 type="button"
                 disabled={pending}
                 onClick={() => setDepth(id)}
+                title={depthOptions.find((d) => d.id === id)?.hint}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${
                   depth === id
                     ? "bg-violet-600 text-white"
@@ -151,6 +181,9 @@ export function OmniPromptBar({
               </button>
             ))}
           </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {depthOptions.find((d) => d.id === depth)?.hint}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -209,9 +242,9 @@ export function OmniPromptBar({
             <div className="h-2 animate-pulse rounded-full bg-violet-200 dark:bg-violet-900" />
             <div className="h-2 w-4/5 animate-pulse rounded-full bg-violet-200 dark:bg-violet-900" />
             <p className="text-sm text-violet-700 dark:text-violet-300">
-              {depth === "complete_mastery"
-                ? "Building your full roadmap and generating all lessons (this may take a minute)…"
-                : "Building your lesson deck…"}
+              {depth === "quick_answer"
+                ? "Building your lesson deck…"
+                : "Building your roadmap and the first lesson (this may take a minute)… the rest of the course fills in as you go."}
             </p>
           </div>
         ) : null}

@@ -27,7 +27,7 @@ export const PLAN_TIERS: Record<PlanTier, PlanTierCopy> = {
     features: [
       `${dailyGenerationLimitForPlan("free")} lesson generations per day`,
       "Full slide decks with narration, animations & practice widgets",
-      "All course depths (quick answer + complete mastery)",
+      "All course depths, from quick answer to complete mastery",
     ],
   },
   pro: {

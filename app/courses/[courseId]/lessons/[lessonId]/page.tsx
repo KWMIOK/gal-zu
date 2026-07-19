@@ -1,11 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 
+import { LessonBlockedView } from "@/components/lessons/lesson-blocked-view";
 import { LessonRenderer } from "@/components/lessons/lesson-renderer";
-import {
-  getCourseById,
-  getLessonById,
-} from "@/lib/db/index";
+import { getNextLessonId } from "@/lib/course-progress";
+import { getCourseById, listLessonsForCourse } from "@/lib/db/index";
+import { CreateCourseFromPromptError } from "@/lib/generation/create-course";
+import { ensureLessonGenerated } from "@/lib/generation/lazy";
+import { stripCapReachedPrefix } from "@/lib/generation/quota-shared";
 
 export default async function LessonPage({
   params,
@@ -19,12 +21,61 @@ export default async function LessonPage({
   const course = await getCourseById(courseId);
   if (!course || course.user_id !== userId) notFound();
 
-  const lesson = await getLessonById(lessonId);
+  const lessons = await listLessonsForCourse(courseId);
+  const lesson = lessons.find((l) => l.id === lessonId);
   if (!lesson || lesson.course_id !== courseId) notFound();
+
+  let resolvedLesson = lesson;
+  let capReachedMessage: string | null = null;
+
+  if (lesson.generation_status !== "ready") {
+    try {
+      // Generates this one lesson on the spot if it's still a `pending`
+      // placeholder — bounded to a single lesson's latency regardless of
+      // how many more lessons the course has queued up. See
+      // lib/generation/lazy.ts.
+      resolvedLesson = await ensureLessonGenerated(lessonId);
+    } catch (error) {
+      if (
+        error instanceof CreateCourseFromPromptError &&
+        error.code === "CAP_REACHED"
+      ) {
+        capReachedMessage = stripCapReachedPrefix(error.message);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  const nextLessonId = getNextLessonId(lessons, lessonId);
+
+  if (capReachedMessage) {
+    return (
+      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+        <LessonBlockedView
+          courseId={courseId}
+          reason="cap_reached"
+          message={capReachedMessage}
+        />
+      </div>
+    );
+  }
+
+  if (resolvedLesson.generation_status !== "ready" || !resolvedLesson.content_payload) {
+    return (
+      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+        <LessonBlockedView courseId={courseId} reason="failed" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <LessonRenderer lesson={lesson} courseId={courseId} />
+      <LessonRenderer
+        lesson={resolvedLesson}
+        courseId={courseId}
+        nextLessonId={nextLessonId}
+      />
     </div>
   );
 }
