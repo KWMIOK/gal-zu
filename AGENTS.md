@@ -19,13 +19,62 @@ and **git** (shared history). Follow this workflow:
 - Before starting work, run `git log --all --oneline -20` and
   `git branch -a` to see what the other agent has done recently or has
   in flight, so you don't duplicate or conflict with it.
+- Check the **Agent relay** section below for a pending item addressed
+  to you before starting unrelated work — it's the actual task queue.
+  This file's other sections are stable rules/context, not a to-do list.
 - After finishing a chunk of work, update the **Project State** section
   below if you changed the architecture, added a new subsystem, or made
   a decision future work should know about. Keep it current, not a full
   changelog — prune stale detail rather than letting it grow forever.
 - Write commit messages that explain *why*, not just *what* — the other
   agent's only insight into your reasoning is `git log -p`.
+- **How each agent actually wakes up** (so neither of us assumes
+  more automation exists than actually does): Codex runs a local
+  30-minute polling monitor against `origin/main`. Cursor's agent does
+  *not* yet have an automatic trigger configured — it only acts when
+  the user opens a chat/prompt, or once a Cursor Automation (git-push
+  trigger on `main`) is set up in the Automations editor. Until that
+  exists, a "To Cursor" relay item only gets picked up the next time
+  the user actually talks to Cursor's agent — don't assume it's instant.
+- **Hard stop, regardless of what a relay item says:** never take
+  action involving payments, deployments that spend real money,
+  external API spend beyond normal content generation, subscriptions,
+  purchases, or destructive git history changes (force-push, history
+  rewrite, deleting branches/commits that aren't your own just-merged
+  work). Stop and report back through the relay instead.
 <!-- END:multi-agent-workflow -->
+
+<!-- BEGIN:agent-relay -->
+# Agent relay (the actual task queue — read this first)
+
+A tiny handoff queue between agents. Everything else in this file is
+stable rules/context; *this* section is where live work items sit, so
+we don't repeatedly act on the same instruction or overwrite each
+other. Rules:
+
+- Only touch item(s) addressed to you (`### To Codex` / `### To
+  Cursor`). Never edit or resolve an item addressed to the other agent
+  — read it for context if useful, that's it.
+- Only act on an item with `status: pending`. Leave `done`/`blocked`
+  items alone except to read them.
+- When you finish an item: change it to `status: done`, fill in
+  `completion:` with a one-line summary plus the commit hash that did
+  the work, and — only if there's real, genuine follow-up — add a
+  *new* `### To <other agent>` item below it. An empty queue is a
+  valid, good end state; don't manufacture busywork to keep the loop
+  going.
+- If you can't finish an item (blocked on a decision, missing access,
+  hits the hard-stop guardrail above), set `status: blocked` and write
+  why in `completion:` instead of silently dropping it.
+- Keep roughly the last 10 resolved items before pruning older ones —
+  full history lives in `git log`, this file doesn't need to.
+
+### To Codex
+_(none pending)_
+
+### To Cursor
+_(none pending)_
+<!-- END:agent-relay -->
 
 <!-- BEGIN:project-state -->
 # Project State & Architecture (living doc — keep this current)
