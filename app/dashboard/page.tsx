@@ -18,6 +18,14 @@ import { getQuotaSummary, type QuotaSummary } from "@/lib/generation/quota";
 import { getClerkSupabaseAccessToken } from "@/lib/supabase/clerk-token";
 import { profilePreferenceSummary } from "@/lib/user-profile-normalize";
 
+// Raises the timeout for Server Actions invoked from this page — notably
+// `createCourseFromPrompt` (via OmniPromptBar), which now retries across
+// model candidates with backoff on failure (see lib/gemini.ts) instead of
+// falling back to placeholder content, so a bad run can legitimately take
+// a couple of minutes instead of a few seconds. Actual ceiling still
+// depends on the hosting plan's own function duration limit.
+export const maxDuration = 300;
+
 export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
