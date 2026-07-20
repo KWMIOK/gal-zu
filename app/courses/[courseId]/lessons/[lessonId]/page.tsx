@@ -27,6 +27,7 @@ export default async function LessonPage({
 
   let resolvedLesson = lesson;
   let capReachedMessage: string | null = null;
+  let debugMessage: string | null = null;
 
   if (lesson.generation_status !== "ready") {
     try {
@@ -42,7 +43,11 @@ export default async function LessonPage({
       ) {
         capReachedMessage = stripCapReachedPrefix(error.message);
       } else {
-        throw error;
+        // Generation genuinely failed (no more silent placeholder fallback
+        // — see lib/gemini.ts) — surface the real error instead of
+        // crashing to Next's generic error page, so it's actually
+        // diagnosable from the lesson itself.
+        debugMessage = error instanceof Error ? error.message : String(error);
       }
     }
   }
@@ -64,7 +69,14 @@ export default async function LessonPage({
   if (resolvedLesson.generation_status !== "ready" || !resolvedLesson.content_payload) {
     return (
       <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-        <LessonBlockedView courseId={courseId} reason="failed" />
+        <LessonBlockedView
+          courseId={courseId}
+          reason="failed"
+          // A live exception from this request takes priority; otherwise
+          // fall back to whatever a prior background attempt recorded
+          // (see generation_error on the lessons table).
+          message={debugMessage ?? resolvedLesson.generation_error ?? undefined}
+        />
       </div>
     );
   }

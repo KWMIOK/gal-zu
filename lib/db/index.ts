@@ -282,6 +282,7 @@ export async function saveGeneratedLessonContent(
   lessonId: string,
   contentPayload: LessonContentPayload | null,
   status: LessonGenerationStatus,
+  generationError: string | null = null,
 ): Promise<Lesson> {
   const { supabase, userId } = await getAuthedSupabase();
 
@@ -296,7 +297,11 @@ export async function saveGeneratedLessonContent(
 
   const result = await supabase
     .from("lessons")
-    .update({ content_payload: contentPayload, generation_status: status })
+    .update({
+      content_payload: contentPayload,
+      generation_status: status,
+      generation_error: generationError,
+    })
     .eq("id", lessonId)
     .select()
     .single();

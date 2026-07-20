@@ -10,10 +10,12 @@ import { GlassCard } from "@/components/ui/glass-card";
 /**
  * Shown from the lesson page when `ensureLessonGenerated` couldn't produce
  * content for this lesson yet — either the learner is out of daily quota
- * (`cap_reached`), or generation genuinely failed (`failed`, rare —
- * `generateLessonPayload` itself already falls back to safe filler content
- * for most failure modes, so reaching this usually means the daily cap was
- * hit mid-generation or a transient DB error).
+ * (`cap_reached`), or generation genuinely failed after every model/retry
+ * attempt (`failed`). There is deliberately no silent placeholder fallback
+ * anymore (see lib/gemini.ts) — `message` here is the *real* underlying
+ * error (which model(s) failed, why, schema mismatch vs API error, etc.),
+ * shown verbatim so a real problem is visible and fixable instead of
+ * masked behind generic filler content.
  */
 export function LessonBlockedView({
   courseId,
@@ -68,11 +70,17 @@ export function LessonBlockedView({
         <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
           <p className="flex items-center gap-2 text-sm font-medium text-red-800 dark:text-red-200">
             <AlertTriangle className="h-4 w-4" />
-            Couldn&apos;t generate this lesson.
+            Couldn&apos;t generate this lesson — every model/retry attempt failed.
           </p>
-          <p className="text-xs text-red-700/80 dark:text-red-300/80">
-            Something went wrong building this lesson&apos;s content. Try again in a moment.
-          </p>
+          {message ? (
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-red-950/90 p-3 font-mono text-[11px] leading-relaxed text-red-100">
+              {message}
+            </pre>
+          ) : (
+            <p className="text-xs text-red-700/80 dark:text-red-300/80">
+              No error detail was captured — check the server logs for this lesson&apos;s generation attempt.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => router.refresh()}

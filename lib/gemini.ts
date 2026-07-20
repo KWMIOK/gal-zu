@@ -122,61 +122,100 @@ REQUIRED:
 - Slide 2: practical application / step-by-step breakdown
 - Slide 3: common pitfalls + key takeaways with specifics`;
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function describeGenerationError(error: unknown): string {
+  return error instanceof GeminiEngineError
+    ? error.message
+    : error instanceof Error
+      ? error.message
+      : String(error);
+}
+
+function extractHttpStatus(error: unknown): number | undefined {
+  if (error && typeof error === "object" && "status" in error) {
+    const status = (error as { status: unknown }).status;
+    return typeof status === "number" ? status : undefined;
+  }
+  return undefined;
+}
+
+// A model is retried this many times before moving on to the next
+// candidate — there is no synchronous time budget to protect anymore (see
+// lib/generation/lazy.ts: lessons generate lazily, one at a time), so it's
+// worth paying the extra latency to actually get real content instead of
+// giving up after a single transient failure (a schema miss, a flaky 500,
+// a JSON hiccup) and masking it with placeholder filler.
+const MAX_ATTEMPTS_PER_MODEL = 3;
+const RETRY_DELAY_MS = [2000, 6000];
+
+/**
+ * Calls Gemini for one structured-JSON generation, retrying transient
+ * failures across every model in `MODEL_CANDIDATES`. Never falls back to
+ * placeholder content on its own — if every model/attempt genuinely fails,
+ * it throws a `GeminiEngineError` whose message lists *every* attempt's
+ * real failure reason (model, attempt number, schema/API/empty-response
+ * detail), so a failure is visible and diagnosable end-to-end instead of
+ * silently degrading into generic filler that looks like success.
+ */
 async function generateStructuredJson(
   systemInstruction: string,
   userPrompt: string,
   schema: z.ZodType,
 ): Promise<unknown> {
   const ai = getGeminiClient();
-  let lastError: unknown;
+  const failures: string[] = [];
 
   for (const model of MODEL_CANDIDATES) {
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        config: {
-          systemInstruction,
-          temperature: 0.35,
-          responseMimeType: "application/json",
-        },
-      });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_MODEL; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+          config: {
+            systemInstruction,
+            temperature: 0.35,
+            responseMimeType: "application/json",
+          },
+        });
 
-      const text = response.text;
-      if (!text) {
-        throw new GeminiEngineError(`Empty response from model ${model}.`);
+        const text = response.text;
+        if (!text) {
+          throw new GeminiEngineError(`Empty response from model ${model}.`);
+        }
+
+        const parsed = parseJsonUnknown(text);
+        const validated = schema.safeParse(parsed);
+        if (!validated.success) {
+          throw new GeminiEngineError(
+            `Schema validation failed for model ${model}: ${validated.error.message}`,
+          );
+        }
+
+        return validated.data;
+      } catch (error) {
+        const reason = describeGenerationError(error);
+        failures.push(`${model} attempt ${attempt}/${MAX_ATTEMPTS_PER_MODEL}: ${reason.slice(0, 500)}`);
+        console.warn(`[gemini] generateStructuredJson failed — ${failures[failures.length - 1]}`);
+
+        const status = extractHttpStatus(error);
+        // A 429 on attempt 1 is almost always an account-wide quota/billing
+        // block, not a fluke — retrying the *same* model won't help, so
+        // move straight to the next candidate instead of burning 2 more
+        // doomed attempts and multiple retry delays.
+        if (status === 429) break;
+
+        if (attempt < MAX_ATTEMPTS_PER_MODEL) {
+          await sleep(RETRY_DELAY_MS[attempt - 1] ?? 6000);
+        }
       }
-
-      const parsed = parseJsonUnknown(text);
-      const validated = schema.safeParse(parsed);
-      if (!validated.success) {
-        throw new GeminiEngineError(
-          `Schema validation failed for model ${model}: ${validated.error.message}`,
-        );
-      }
-
-      return validated.data;
-    } catch (error) {
-      lastError = error;
-      // This used to be swallowed entirely until every candidate was
-      // exhausted, which made "silently fell back to placeholder content"
-      // indistinguishable from "everything is fine" in prod logs. Log each
-      // candidate's failure reason (schema mismatch vs API error vs empty
-      // response) so a bad prompt/schema combo is visible immediately
-      // instead of only showing up as generic filler content to the user.
-      const reason =
-        error instanceof GeminiEngineError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : String(error);
-      console.warn(`[gemini] generateStructuredJson failed for model ${model}: ${reason.slice(0, 500)}`);
     }
   }
 
   throw new GeminiEngineError(
-    "All Gemini model attempts failed.",
-    lastError,
+    `All Gemini model attempts failed:\n${failures.join("\n")}`,
   );
 }
 
@@ -320,60 +359,6 @@ export function normalizeRoadmapTree(
   };
 }
 
-function fallbackClassification(
-  topic: string,
-  context?: GeminiGenerationContext,
-): CourseClassificationResult {
-  const clean = sanitizeLearnerTopic(topic);
-  const title =
-    clean.length > 80 ? `${clean.slice(0, 77).trim()}…` : clean;
-  const tier = resolveDepthTier(context);
-  const tierConfig = tier === "quick_answer" ? null : DEPTH_TIER_CONFIG[tier];
-  const baseScope = tierConfig?.scopeType ?? "micro";
-
-  let roadmap_tree = normalizeRoadmapTree(
-    {
-      version: 1,
-      phases: [
-        {
-          id: ensureId("phase"),
-          title: tierConfig ? "Phase 1: Foundations" : "Core lesson",
-          order: 0,
-          modules: [
-            {
-              id: ensureId("mod"),
-              title: `Introduction to ${title}`,
-              order: 0,
-              estimated_minutes: 10,
-            },
-          ],
-        },
-      ],
-    },
-    title || "Quick lesson",
-  );
-
-  if (tierConfig) {
-    roadmap_tree = ensureRoadmapScale(roadmap_tree, clean, tierConfig);
-  }
-
-  return applyScopeScaling(
-    {
-      scope_type: baseScope,
-      title: title || "Quick lesson",
-      description: `Structured path to learn: ${clean}`,
-      roadmap_tree,
-      first_lesson: {
-        title: `Lesson 1: ${title}`,
-        topic: clean,
-        format: "slideshow",
-      },
-    },
-    clean,
-    context,
-  );
-}
-
 function padSlideDeck(content: SlideContent, minSlides: number): SlideContent {
   const slides = [...content.slides];
   let n = slides.length;
@@ -408,95 +393,6 @@ function applyScopeScaling(
     scope_type: config.scopeType,
     roadmap_tree: ensureRoadmapScale(result.roadmap_tree, cleanTopic, config),
   };
-}
-
-function fallbackSlideshow(topic: string): SlideContent {
-  const clean = sanitizeLearnerTopic(topic);
-
-  // NOTE: this function is a last-resort safety net, hit only when Gemini
-  // generation fails for every model candidate (see generateLessonPayload's
-  // catch block). It intentionally does NOT special-case specific topics
-  // (e.g. "Georgian", "1+1") anymore — a hardcoded deck matched by a topic
-  // *keyword* used to be returned byte-for-byte identical for every lesson
-  // in a course whose topic string contained that keyword (e.g. all 8
-  // lessons of a "Georgian" mastery course, since every one of their topic
-  // strings contains the word "Georgian"), which is exactly what caused
-  // "every lesson looks the same" when a burst of 8 back-to-back generation
-  // calls tripped rate limits partway through. Always derive fallback
-  // content from the *full* per-lesson topic string (which already differs
-  // per module/angle — see buildLessonPlans) so even failure-mode output
-  // stays distinct lesson-to-lesson.
-  return {
-    type: "slideshow",
-    estimated_minutes: 5,
-    slides: [
-      {
-        id: ensureId("slide"),
-        title: `${clean}: core definition`,
-        text_content: `Define ${clean} with one precise sentence, one numeric or named example, and one sentence on why it matters in practice.`,
-        spoken_narration: `Let's define ${clean} in one clear sentence, walk through a concrete example, and see why it actually matters.`,
-        animation_prompt: "lightbulb_idea",
-      },
-      {
-        id: ensureId("slide"),
-        title: `${clean}: worked example`,
-        text_content: `Walk through a 3-step example specific to ${clean}. Each step must name concrete terms, values, or actions — no generic study advice.`,
-        spoken_narration: `Now let's work through a step by step example of ${clean}, using real terms and values at every step.`,
-        animation_prompt: "thinking",
-      },
-      {
-        id: ensureId("slide"),
-        title: `${clean}: pitfalls & recap`,
-        text_content: `List two common mistakes learners make with ${clean} and the correct idea in one line each. End with three bullet-sized facts the learner should remember.`,
-        spoken_narration: `Here are the most common mistakes learners make with ${clean}, and the three key facts worth remembering.`,
-        animation_prompt: "success_checkmark",
-      },
-    ],
-  };
-}
-
-function fallbackLessonPayload(
-  topic: string,
-  format: LessonFormat,
-): LessonContentPayload {
-  switch (format) {
-    case "cheat_sheet":
-      return {
-        type: "cheat_sheet",
-        markdown: `# ${topic}\n\n## Overview\n\nKey ideas about **${topic}** will appear here once generation succeeds.\n\n## Steps\n\n1. Start with the basics.\n2. Practice with a simple example.\n3. Review what you learned.`,
-        key_takeaways: [
-          `You can learn ${topic} in small, steady steps.`,
-          "Focus on one concept at a time.",
-        ],
-      };
-    case "quiz":
-      return {
-        type: "quiz",
-        questions: [
-          {
-            id: ensureId("q"),
-            prompt: `What is the main goal when studying "${topic}"?`,
-            choices: [
-              "Memorize without understanding",
-              "Build understanding step by step",
-              "Skip fundamentals",
-            ],
-            correct_index: 1,
-            hint: "Gal-zu favors steady, supportive learning.",
-            explanation: "Understanding builds durable knowledge.",
-          },
-        ],
-        passing_score_percent: 70,
-      };
-    case "script":
-      return {
-        type: "script",
-        markdown: `# ${topic}\n\nWelcome. Today we explore **${topic}** at a comfortable pace.`,
-      };
-    case "slideshow":
-    default:
-      return padSlideDeck(fallbackSlideshow(topic), 5);
-  }
 }
 
 /**
@@ -603,8 +499,18 @@ ${buildProfileAdaptationInstructions(profile)}`;
 
     return scaled;
   } catch (error) {
-    console.error("[gemini] classifyAndBuildRoadmap fallback:", error);
-    return fallbackClassification(cleanTopic, context);
+    // Used to catch-and-substitute a generic "Introduction to X" roadmap
+    // here, indistinguishable from a real successful classification — that
+    // silent masking is exactly what produced repeated/generic-feeling
+    // courses whenever the underlying calls were actually failing. Let the
+    // real, detailed error (see generateStructuredJson) propagate instead.
+    if (error instanceof GeminiEngineError) {
+      throw error;
+    }
+    throw new GeminiEngineError(
+      `classifyAndBuildRoadmap failed for "${cleanTopic}": ${describeGenerationError(error)}`,
+      error,
+    );
   }
 }
 
@@ -715,15 +621,21 @@ ${buildProfileAdaptationInstructions(profile)}`;
     }
     return parsed;
   } catch (error) {
-    console.error("[gemini] generateLessonPayload fallback:", error);
-    const fallback = fallbackLessonPayload(trimmedTopic, format);
-    if (fallback.type === "slideshow") {
-      const padded = padSlideDeck(fallback, slideMin);
-      return grounding?.citations.length
-        ? { ...padded, citations: grounding.citations }
-        : padded;
+    // Used to catch-and-substitute generic placeholder content here (a
+    // fixed 3-slide "core definition / worked example / pitfalls" deck),
+    // indistinguishable from real generated content once rendered — that's
+    // exactly what caused lessons to look useless/repeated whenever
+    // generation was actually failing underneath. Let the real, detailed
+    // error (see generateStructuredJson) propagate all the way to the
+    // caller instead, so the lesson page can show it and it's actually
+    // fixable rather than invisible.
+    if (error instanceof GeminiEngineError) {
+      throw error;
     }
-    return fallback;
+    throw new GeminiEngineError(
+      `generateLessonPayload failed for "${trimmedTopic}" (${format}): ${describeGenerationError(error)}`,
+      error,
+    );
   }
 }
 

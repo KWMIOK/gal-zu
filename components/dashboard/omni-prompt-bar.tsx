@@ -234,7 +234,9 @@ export function OmniPromptBar({
             </div>
           </div>
         ) : error ? (
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-red-950/5 p-3 font-mono text-xs leading-relaxed text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </pre>
         ) : null}
 
         {pending ? (

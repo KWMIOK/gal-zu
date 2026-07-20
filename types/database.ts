@@ -256,6 +256,8 @@ export interface Lesson {
   is_completed: boolean;
   generation_status: LessonGenerationStatus;
   generation_plan: LessonGenerationPlan | null;
+  /** The real error from the last failed generation attempt — never a generic message. See lib/gemini.ts. */
+  generation_error: string | null;
   order_index: number;
   created_at: string;
   updated_at: string;
@@ -302,6 +304,7 @@ export type LessonInsert = {
   content_payload?: LessonContentPayload | null;
   generation_status?: LessonGenerationStatus;
   generation_plan?: LessonGenerationPlan | null;
+  generation_error?: string | null;
   is_completed?: boolean;
 };
 
@@ -409,6 +412,7 @@ export type Database = {
           content_payload?: LessonContentPayload | null;
           generation_status?: LessonGenerationStatus;
           generation_plan?: LessonGenerationPlan | null;
+          generation_error?: string | null;
           is_completed?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -422,6 +426,7 @@ export type Database = {
           content_payload?: LessonContentPayload | null;
           generation_status?: LessonGenerationStatus;
           generation_plan?: LessonGenerationPlan | null;
+          generation_error?: string | null;
           is_completed?: boolean;
           created_at?: string;
           updated_at?: string;

@@ -120,7 +120,12 @@ export async function ensureLessonGenerated(lessonId: string): Promise<Lesson> {
   }
 
   if (!claimed.generation_plan) {
-    return saveGeneratedLessonContent(lessonId, null, "failed");
+    return saveGeneratedLessonContent(
+      lessonId,
+      null,
+      "failed",
+      "This lesson has no stored generation plan to build from (missing generation_plan on a pending row) — this indicates a bug in course creation, not a Gemini failure.",
+    );
   }
 
   try {
@@ -132,7 +137,8 @@ export async function ensureLessonGenerated(lessonId: string): Promise<Lesson> {
     );
     return await saveGeneratedLessonContent(lessonId, contentPayload, "ready");
   } catch (error) {
-    await saveGeneratedLessonContent(lessonId, null, "failed");
+    const message = error instanceof Error ? error.message : String(error);
+    await saveGeneratedLessonContent(lessonId, null, "failed", message);
     throw error;
   }
 }
