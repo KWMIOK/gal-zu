@@ -1,8 +1,15 @@
 import type { UserProfileUpdate } from "@/types/database";
 
+/**
+ * `firstLessonId` no longer comes back synchronously — classification and
+ * lesson 1 generation happen lazily the moment the course page opens (see
+ * `ensureCourseClassified` in lib/generation/lazy.ts), the same pattern
+ * already used for lesson 2+. This keeps course *creation* itself to a
+ * couple of fast DB writes, no Gemini calls, so it can never be the thing
+ * that times out a Server Action.
+ */
 export type CreateCourseFromPromptResult = {
   courseId: string;
-  firstLessonId: string;
 };
 
 /**

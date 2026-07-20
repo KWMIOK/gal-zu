@@ -7,6 +7,7 @@ import {
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
   type Course,
   type CourseInsert,
+  type CourseUpdate,
   type GenerationEvent,
   type Lesson,
   type LessonContentPayload,
@@ -170,11 +171,87 @@ export async function createCourse(input: CourseInsert): Promise<Course> {
       description: input.description ?? null,
       scope_type: input.scope_type,
       roadmap_tree: input.roadmap_tree ?? null,
+      status: input.status ?? "ready",
+      topic: input.topic ?? null,
+      depth: input.depth ?? null,
+      session_length: input.session_length ?? null,
+      classification_started_at: input.classification_started_at ?? null,
     })
     .select()
     .single();
 
   return throwOnError(result, "createCourse") as Course;
+}
+
+/** Generic course-row patch — used to land classification results or record a failure. */
+export async function updateCourse(
+  courseId: string,
+  patch: CourseUpdate,
+): Promise<Course> {
+  const { supabase, userId } = await getAuthedSupabase();
+
+  const course = await getCourseById(courseId);
+  if (!course || course.user_id !== userId) {
+    throw new DbError("Course not found or access denied.");
+  }
+
+  const result = await supabase
+    .from("courses")
+    .update(patch)
+    .eq("id", courseId)
+    .select()
+    .single();
+
+  return throwOnError(result, "updateCourse") as Course;
+}
+
+/**
+ * Atomically claims a course for (re-)classification — mirrors
+ * `tryClaimLessonForGeneration`. `classification_started_at` is left null
+ * at creation (see `createCourseFromPrompt`) and only set the moment a
+ * request actually starts working the row, so this can tell "never
+ * attempted yet" apart from "another request/tab is already on it".
+ * Succeeds only if the row is `failed`, `classifying` and never claimed
+ * (`classification_started_at IS NULL`), or `classifying` and stale (older
+ * than `staleAfterMs` — whatever claimed it likely died/timed out without
+ * reporting back). Returns `null` if someone else holds a fresh claim.
+ */
+export async function tryClaimCourseForClassification(
+  courseId: string,
+  staleAfterMs = 3 * 60 * 1000,
+): Promise<Course | null> {
+  const { supabase, userId } = await getAuthedSupabase();
+
+  const course = await getCourseById(courseId);
+  if (!course) {
+    throw new DbError("Course not found.");
+  }
+  if (course.user_id !== userId) {
+    throw new DbError("Access denied.");
+  }
+
+  const staleBefore = new Date(Date.now() - staleAfterMs).toISOString();
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("courses")
+    .update({
+      status: "classifying",
+      classification_started_at: nowIso,
+      generation_error: null,
+    })
+    .eq("id", courseId)
+    .or(
+      `status.eq.failed,and(status.eq.classifying,classification_started_at.is.null),and(status.eq.classifying,classification_started_at.lt.${staleBefore})`,
+    )
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    throw new DbError(`tryClaimCourseForClassification: ${error.message}`, error);
+  }
+
+  return (data as Course | null) ?? null;
 }
 
 export async function listLessonsForCourse(

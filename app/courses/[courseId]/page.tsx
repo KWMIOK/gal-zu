@@ -3,15 +3,22 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { CourseStatusView } from "@/components/courses/course-status-view";
 import { DeleteCourseButton } from "@/components/courses/delete-course-button";
 import { RoadmapTimeline } from "@/components/courses/roadmap-timeline";
 import { GlassCard } from "@/components/ui/glass-card";
 import { getActiveLessonId, computeCourseProgress } from "@/lib/course-progress";
 import { flatModuleLabels } from "@/lib/course-roadmap";
-import {
-  getCourseById,
-  listLessonsForCourse,
-} from "@/lib/db/index";
+import { getCourseById, listLessonsForCourse } from "@/lib/db/index";
+import { ensureCourseClassified } from "@/lib/generation/lazy";
+import { isCapReachedMessage, stripCapReachedPrefix } from "@/lib/generation/quota-shared";
+
+// This page can synchronously await `ensureCourseClassified`, which now
+// does the classification + lesson-1 generation that used to run inside
+// the createCourseFromPrompt Server Action — moved here so a slow/retrying
+// Gemini call is recoverable (refresh the page) instead of a dead end. See
+// lib/generation/lazy.ts and the Phase 7c migration comment for why.
+export const maxDuration = 300;
 
 export default async function CoursePage({
   params,
@@ -22,8 +29,33 @@ export default async function CoursePage({
   if (!userId) redirect("/sign-in");
 
   const { courseId } = await params;
-  const course = await getCourseById(courseId);
+  let course = await getCourseById(courseId);
   if (!course || course.user_id !== userId) notFound();
+
+  if (course.status !== "ready") {
+    course = await ensureCourseClassified(courseId);
+  }
+
+  if (course.status === "classifying") {
+    return (
+      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+        <CourseStatusView reason="building" />
+      </div>
+    );
+  }
+
+  if (course.status === "failed") {
+    const rawMessage = course.generation_error ?? undefined;
+    const capReached = rawMessage ? isCapReachedMessage(rawMessage) : false;
+    return (
+      <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+        <CourseStatusView
+          reason={capReached ? "cap_reached" : "failed"}
+          message={capReached ? stripCapReachedPrefix(rawMessage!) : rawMessage}
+        />
+      </div>
+    );
+  }
 
   const lessons = await listLessonsForCourse(courseId);
   const { percent, completed, total } = computeCourseProgress(lessons);

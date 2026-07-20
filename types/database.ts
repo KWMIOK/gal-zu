@@ -214,6 +214,15 @@ export interface GenerationEvent {
   created_at: string;
 }
 
+/**
+ * 'classifying': placeholder row, `classifyAndBuildRoadmap` + lesson 1 not
+ * generated yet — `roadmap_tree` is null, `title` is a temporary echo of the
+ * learner's raw topic. 'ready': classification succeeded, real title/
+ * roadmap in place. 'failed': classification was attempted and threw —
+ * `generation_error` has the real detail, retry via `ensureCourseClassified`.
+ */
+export type CourseGenerationStatus = "classifying" | "ready" | "failed";
+
 export interface Course {
   id: string;
   user_id: UserProfileId;
@@ -221,6 +230,16 @@ export interface Course {
   description: string | null;
   scope_type: ScopeType;
   roadmap_tree: RoadmapTree | null;
+  status: CourseGenerationStatus;
+  /** The real error from the last failed classification attempt — never a generic message. See lib/gemini.ts. */
+  generation_error: string | null;
+  /** The cleaned learner prompt fed to classification — persisted so a retry doesn't need it re-supplied. */
+  topic: string | null;
+  /** Raw `PromptDepth` / `PromptSessionLength` values (see lib/generation/create-course.ts) — stored as plain strings here to avoid a circular type import. */
+  depth: string | null;
+  session_length: string | null;
+  /** Set once, at creation — lets a stuck 'classifying' row become retryable after a timeout instead of stuck forever. */
+  classification_started_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -293,7 +312,25 @@ export type CourseInsert = {
   description?: string | null;
   scope_type: ScopeType;
   roadmap_tree?: RoadmapTree | null;
+  status?: CourseGenerationStatus;
+  topic?: string | null;
+  depth?: string | null;
+  session_length?: string | null;
+  classification_started_at?: string | null;
 };
+
+export type CourseUpdate = Partial<
+  Pick<
+    Course,
+    | "title"
+    | "description"
+    | "scope_type"
+    | "roadmap_tree"
+    | "status"
+    | "generation_error"
+    | "classification_started_at"
+  >
+>;
 
 export type LessonInsert = {
   course_id: string;
@@ -378,6 +415,12 @@ export type Database = {
           description?: string | null;
           scope_type: ScopeType;
           roadmap_tree?: RoadmapTree | null;
+          status?: CourseGenerationStatus;
+          generation_error?: string | null;
+          topic?: string | null;
+          depth?: string | null;
+          session_length?: string | null;
+          classification_started_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -388,6 +431,12 @@ export type Database = {
           description?: string | null;
           scope_type?: ScopeType;
           roadmap_tree?: RoadmapTree | null;
+          status?: CourseGenerationStatus;
+          generation_error?: string | null;
+          topic?: string | null;
+          depth?: string | null;
+          session_length?: string | null;
+          classification_started_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

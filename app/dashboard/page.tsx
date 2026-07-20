@@ -18,12 +18,12 @@ import { getQuotaSummary, type QuotaSummary } from "@/lib/generation/quota";
 import { getClerkSupabaseAccessToken } from "@/lib/supabase/clerk-token";
 import { profilePreferenceSummary } from "@/lib/user-profile-normalize";
 
-// Raises the timeout for Server Actions invoked from this page — notably
-// `createCourseFromPrompt` (via OmniPromptBar), which now retries across
-// model candidates with backoff on failure (see lib/gemini.ts) instead of
-// falling back to placeholder content, so a bad run can legitimately take
-// a couple of minutes instead of a few seconds. Actual ceiling still
-// depends on the hosting plan's own function duration limit.
+// `createCourseFromPrompt` (via OmniPromptBar) itself does no Gemini calls
+// anymore — classification + lesson 1 now happen lazily on the course page
+// (see app/courses/[courseId]/page.tsx, lib/generation/lazy.ts) instead of
+// blocking this Server Action, so this page no longer needs a raised
+// duration for that. Kept anyway as a cheap safety margin for whatever else
+// might run slow here.
 export const maxDuration = 300;
 
 export default async function DashboardPage() {

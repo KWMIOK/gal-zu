@@ -209,13 +209,36 @@ entitlements) are done.
   each of `MODEL_CANDIDATES` up to 3x with backoff before giving up.
   This means generation requests can legitimately take 1–2+ minutes now.
   To compensate: `export const maxDuration = 300` is set on
-  `app/dashboard/page.tsx` and the lesson page, and `app/error.tsx` /
-  `app/global-error.tsx` exist as a safety net so a timeout shows a
-  retry UI instead of Next's opaque generic crash message. **If the
-  hosting plan's real function-duration ceiling is below 300s, dial the
-  retry budget down in `lib/gemini.ts` instead of just raising
+  `app/dashboard/page.tsx`, the course page, and the lesson page, and
+  `app/error.tsx` / `app/global-error.tsx` exist as a safety net so a
+  timeout shows a retry UI instead of Next's opaque generic crash message.
+  **If the hosting plan's real function-duration ceiling is below 300s,
+  dial the retry budget down in `lib/gemini.ts` instead of just raising
   `maxDuration` further** — a request the platform kills will crash the
-  same way regardless of what the code declares.
+  same way regardless of what the code declares. 300s is both Next's
+  documented default *and* Vercel Hobby's hard max with Fluid Compute
+  (Pro/Enterprise go to 800s) — see the Phase 7c note below for why we
+  stopped relying on this ceiling alone for the heaviest depth tier.
+- **Async course classification (Phase 7c).** `createCourseFromPrompt`
+  (`app/actions/generation.ts`) does *zero* Gemini calls now — it's just
+  auth/quota checks + one fast insert (`courses.status = 'classifying'`).
+  The actual classification + lesson-1 generation
+  (`runCourseClassification`/`ensureCourseClassified` in
+  `lib/generation/lazy.ts`) runs lazily the moment the course page opens
+  (`app/courses/[courseId]/page.tsx`), with an `after()`-scheduled warm
+  start kicked off at creation so it's often already done by the time the
+  redirect lands. Root cause this fixed: complete_mastery + multi_week's
+  classification call (largest roadmap JSON, most likely to need every
+  retry) could genuinely take long enough to hit Vercel's own function
+  ceiling *inside* the Server Action, which surfaced to the client as the
+  generic undebuggable "An error occurred in the Server Components
+  render" with no course ever created — a dead end. Now that failure mode
+  just leaves `courses.status = 'failed'` with the real error in
+  `courses.generation_error` (rendered via `CourseStatusView`, retryable
+  by reopening the course page) instead of crashing with nothing to show
+  for it. `courses.topic`/`depth`/`session_length` are persisted
+  specifically so a retry has what it needs to re-run classification from
+  scratch. Don't reintroduce classification inside the Server Action.
 - **Progressive/lazy lesson generation.** Course creation
   (`app/actions/generation.ts`) only generates lesson 1 synchronously;
   the rest are inserted as `pending` rows carrying a `generation_plan`
@@ -223,9 +246,9 @@ entitlements) are done.
   when a learner opens the lesson (`ensureLessonGenerated` in
   `lib/generation/lazy.ts`, called from the lesson page) or prefetched
   in the background via Next's `after()` (`prefetchNextPendingLesson`,
-  kicked off from course creation and from `completeLessonAction`).
-  This keeps course creation bounded to "one classification + one
-  lesson" latency regardless of course size.
+  kicked off from course creation and from `completeLessonAction`). As of
+  Phase 7c, lesson 1 itself is part of the *lazy* classification step (see
+  above), not the Server Action — course creation is now just a DB insert.
 - **Topic-aware depth tiers.** Four `PromptDepth` tiers — `quick_answer`,
   `overview`, `deep_dive`, `complete_mastery` — each with its own module
   count range, lessons-per-module, and slide range
@@ -248,7 +271,10 @@ entitlements) are done.
   planning.
 - `lib/generation/lazy.ts` — lazy/background lesson generation
   (`ensureLessonGenerated`, `prefetchNextPendingLesson`,
-  `generateContentForPlan`).
+  `generateContentForPlan`) *and* lazy course classification
+  (`ensureCourseClassified`, `runCourseClassification`).
+- `components/courses/course-status-view.tsx` — course-level equivalent of
+  `LessonBlockedView` (building / cap-reached / failed states).
 - `lib/generation/quota.ts` — daily quota checks.
 - `app/actions/generation.ts`, `app/actions/lessons.ts` — Server Actions
   for course/lesson creation and lifecycle.
@@ -258,13 +284,17 @@ entitlements) are done.
   errors to the user.
 - `supabase/migrations/*` — schema history; `generation_status`,
   `generation_plan`, `generation_error`, `order_index` on `lessons` are
-  Phase 7 additions.
+  Phase 7 additions; `status`, `generation_error`, `topic`, `depth`,
+  `session_length`, `classification_started_at` on `courses` are Phase 7c.
 
 ## Known open items
 
-- Haven't confirmed the actual Vercel plan's function-duration ceiling
-  against the `maxDuration = 300` we've declared — check Project
-  Settings → Functions if timeouts recur.
+- Confirmed (2026-07-20, via web search) that Vercel Hobby's real ceiling
+  with Fluid Compute is 300s, matching our `maxDuration = 300` — Pro/
+  Enterprise go to 800s (1800s extended, beta). Not the previous unknown
+  anymore, but still worth re-checking Project Settings → Functions if
+  timeouts recur, in case Fluid Compute itself isn't enabled on the
+  project.
 - Mobile (Capacitor) build needs a manual `npm run build:mobile` +
   resync to pick up web changes; it does not auto-update.
 - `middleware.ts` is deprecated in this Next.js version in favor of
