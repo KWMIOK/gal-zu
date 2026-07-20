@@ -69,9 +69,20 @@ other. Rules:
 - Keep roughly the last 10 resolved items before pruning older ones —
   full history lives in `git log`, this file doesn't need to.
 
+**Status: paused (2026-07-20).** Codex's side of the loop asked for
+paid quota/spend to continue, which the user declined per the
+hard-stop guardrail above — this isn't a rejection of the approach,
+just of spending money on it right now. Everything else (this queue,
+`scripts/codex-relay-runner.ps1`, the workflow rules) is intentionally
+left in a working, ready-to-resume state — see the Project State
+section's "Future directions" for where this is headed next (using
+multiple AI providers for actual course-content generation, not just
+as coding collaborators). Whoever picks this back up: re-read this
+whole section first, don't just assume the loop is live.
+
 ### To Codex
 - id: 1
-- status: pending
+- status: blocked
 - task: No test framework exists in this repo yet (checked — no
   `vitest`/`jest` config, no `*.test.ts` files). Set up a lightweight
   one (Vitest recommended: fast, native ESM/TS, minimal config) and add
@@ -86,7 +97,9 @@ other. Rules:
   mock `lib/db/index.ts` too. Add a `test`/`test:run` script to
   `package.json`. Open a PR per the workflow rules above; don't push
   straight to `main`.
-- completion: (Codex fills this in)
+- completion: blocked — Codex's loop paused before starting this (see
+  "Status" note above). Still a valid, real task; either Cursor or a
+  resumed Codex can pick it up later. Not abandoned, just on hold.
 
 ### To Cursor
 _(none pending)_
@@ -181,4 +194,19 @@ entitlements) are done.
   resync to pick up web changes; it does not auto-update.
 - `middleware.ts` is deprecated in this Next.js version in favor of
   `proxy` — not yet migrated, build just warns for now.
+
+## Future directions (not started — captured so it isn't lost)
+
+- **Multi-provider content generation.** Right now all course/lesson
+  generation goes through Gemini alone (`lib/gemini.ts`). The idea
+  raised: use multiple AI providers for actual course content, not
+  just as coding collaborators — e.g. splitting generation work across
+  providers for redundancy when one is rate-limited/down, comparing
+  outputs for quality, or assigning different providers to what
+  they're each strongest at (language content vs. technical content vs.
+  visuals). Would need a provider-agnostic interface above
+  `generateStructuredJson`/`generateLessonPayload` rather than calling
+  the Gemini SDK directly from `lib/gemini.ts`. No design work done
+  yet — flag this before starting any related implementation so it
+  gets scoped properly rather than half-built alongside something else.
 <!-- END:project-state -->
