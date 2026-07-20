@@ -1,0 +1,38 @@
+﻿git : 16:19:41.535937 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/bin
+At C:\Users\khale\AppData\Local\Temp\ps-script-917adb6f-774a-4c6a-964e-17e9dccc2303.ps1:95 char:33
++ ... GIT_TRACE=1; git push -u origin cursor/agents-md-handoff 2>&1 | Out-F ...
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (16:19:41.535937...Git/mingw64/bin:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+16:19:41.545687 git.c:502               trace: built-in: git push -u origin cursor/agents-md-handoff
+16:19:41.547366 run-command.c:674       trace: run_command: GIT_DIR=.git git remote-https origin 
+https://github.com/KWMIOK/gal-zu.git
+16:19:41.547366 run-command.c:935       trace: start_command: git remote-https origin 
+https://github.com/KWMIOK/gal-zu.git
+16:19:41.564061 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:41.564061 git.c:807               trace: exec: git-remote-https origin https://github.com/KWMIOK/gal-zu.git
+16:19:41.564061 run-command.c:674       trace: run_command: git-remote-https origin 
+https://github.com/KWMIOK/gal-zu.git
+16:19:41.564061 run-command.c:935       trace: start_command: git-remote-https origin 
+https://github.com/KWMIOK/gal-zu.git
+16:19:41.575175 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:41.913951 run-command.c:674       trace: run_command: 'git credential-manager get'
+16:19:41.913951 run-command.c:935       trace: start_command: 'C:/Program Files/Git/usr/bin/sh.exe' -c 'git 
+credential-manager get' 'git credential-manager get'
+16:19:41.947661 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:41.951432 git.c:807               trace: exec: git-credential-manager get
+16:19:41.951432 run-command.c:674       trace: run_command: git-credential-manager get
+16:19:41.951432 run-command.c:935       trace: start_command: git-credential-manager get
+16:19:42.012897 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:42.014345 git.c:502               trace: built-in: git config --null --list
+16:19:42.123700 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:42.126449 git.c:502               trace: built-in: git version
+16:19:42.136700 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:42.136700 git.c:502               trace: built-in: git config --null --type=path 
+credential.https://github.com.gitHubHelper
+16:19:42.147783 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:42.153000 git.c:502               trace: built-in: git config --null --type=path 
+credential.github.com.gitHubHelper
+16:19:42.162626 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core
+16:19:42.164141 git.c:502               trace: built-in: git config --null --type=path credential.gitHubHelper
