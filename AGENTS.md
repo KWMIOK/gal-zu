@@ -58,23 +58,34 @@ these are standing rules for every agent touching generation code.
 
 ## Gemini API cost rule — read before testing anything
 
-**Never run live Gemini API calls to test or verify a change unless the
-user has explicitly authorized that specific test in the current
-conversation.** There is no separate "test" quota — every call (including
-`scripts/debug-*.ts`, manually triggering course creation in a dev server,
-etc.) spends the same real, paid quota the user is budgeting for
-production use. This has already caused unexpected charges once; don't
-repeat it.
+This is a **permission gate on agents acting autonomously**, not a
+technical cap on the app or on the user's own usage — nothing in the
+codebase should ever throttle Gemini calls down to "free tier" behavior on
+its own. The user has a real paid quota and explicitly wants it used for
+real testing at milestones; this rule exists so that only happens when
+*they've* decided it's time, not because an agent decided to burn spend
+verifying its own work unprompted. This has already caused unexpected
+charges once from unprompted agent testing; don't repeat that specific
+mistake, but don't over-correct into refusing legitimate, user-requested
+testing either.
 
-- Default to static verification: read the code, `tsc --noEmit`, lint,
-  `next build`, and reasoning through the prompt/schema/plan logic by hand.
-  This covers almost everything needed to confirm generation quality
-  guardrails (above) still hold.
-- If a live call is genuinely the only way to confirm a fix works, **ask
-  the user first**, and if they agree, run the smallest possible test —
-  one `quick_answer`-tier single-lesson generation, not a full
-  `complete_mastery` course — using `scripts/debug-lesson-gen.ts` rather
-  than a full course flow.
+- **Default (no explicit go-ahead in the current conversation): no live
+  calls.** Verify statically instead — read the code, `tsc --noEmit`,
+  lint, `next build`, and reasoning through the prompt/schema/plan logic
+  by hand. This covers almost everything needed to confirm generation
+  quality guardrails (above) still hold.
+- **When the user explicitly authorizes a live test (e.g. "test this at
+  the next milestone", "go ahead and run it"), just run it — at the scope
+  they actually asked for.** Don't unilaterally downgrade a requested
+  `complete_mastery`/`multi_week` course test to a cheaper
+  `quick_answer`/single-lesson one "to be safe," and don't re-litigate the
+  cost concern or ask again once they've said yes — that's second-guessing
+  a decision that's explicitly theirs to make. Milestone testing on real
+  (including paid) quota is expected, normal, and the whole point of
+  having quota provisioned.
+- If a live call would help confirm a fix but the user hasn't said
+  anything about testing, **ask first** rather than assuming either way —
+  offer it as an option, don't decide for them in either direction.
 - If you're unsure whether a check counts as "live", assume it does and
   ask.
 <!-- END:content-quality-guardrails -->
