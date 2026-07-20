@@ -29,6 +29,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+push-debug*.log
+.debug-course-log.txt
 scripts/debug-course-run.out.txt
 scripts/.debug-course-log.txt
 
