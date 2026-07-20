@@ -70,7 +70,23 @@ other. Rules:
   full history lives in `git log`, this file doesn't need to.
 
 ### To Codex
-_(none pending)_
+- id: 1
+- status: pending
+- task: No test framework exists in this repo yet (checked — no
+  `vitest`/`jest` config, no `*.test.ts` files). Set up a lightweight
+  one (Vitest recommended: fast, native ESM/TS, minimal config) and add
+  tests covering two Phase 7 failure-state paths: (1)
+  `generateStructuredJson` (`lib/gemini.ts`) throws `GeminiEngineError`
+  with aggregated per-attempt detail once all `MODEL_CANDIDATES` are
+  exhausted — mock the `@google/genai` client, no live API calls; (2)
+  `ensureLessonGenerated` (`lib/generation/lazy.ts`) persists
+  `generation_error` and returns a lesson with
+  `generation_status: "failed"` when `generateContentForPlan` throws —
+  mock it, no live API calls or real Supabase writes needed if you can
+  mock `lib/db/index.ts` too. Add a `test`/`test:run` script to
+  `package.json`. Open a PR per the workflow rules above; don't push
+  straight to `main`.
+- completion: (Codex fills this in)
 
 ### To Cursor
 _(none pending)_
