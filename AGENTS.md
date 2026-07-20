@@ -4,6 +4,81 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+<!-- BEGIN:content-quality-guardrails -->
+# Course generation quality — standing priority #1
+
+The user has explicitly made this the top priority, repeatedly, because it
+kept regressing: **course generation must never produce useless, factually
+unreliable, or repetitive content.** Treat any change that risks this as a
+P0 concern — more important than new features. Don't wait to be told again;
+these are standing rules for every agent touching generation code.
+
+## What "good" means, concretely
+
+- **No repetitive cards.** Every lesson in a course must be built from its
+  own distinct topic/context, derived from the specific module + phase it
+  belongs to — never the same prompt/context reused across lessons. This is
+  what `buildLessonPlans` (`lib/gemini/lesson-plans.ts`) exists to guarantee
+  (each lesson gets `topic`/`title` scoped to its own module, e.g. "X —
+  Foundations" vs "X — Practice & nuance"). If you touch lesson planning,
+  re-read that function and confirm the distinctness still holds for every
+  plan it emits, including the single-lesson (`quick_answer`) path.
+- **No useless/generic filler.** Banned patterns and required structure
+  live in `EDUCATOR_SYSTEM_PREAMBLE` (`lib/gemini.ts`) — dense, factual,
+  concrete content only; no meta-commentary, no "let's explore together"
+  filler, no unlabeled placeholder module titles like "Introduction to X"
+  or "Core lesson". The classification prompt in `classifyAndBuildRoadmap`
+  explicitly bans generic roadmap titles too — preserve that if you edit it.
+- **No unreliable/fabricated info presented as fact.** Prefer verified
+  context (`ragContext`, grounded search results) over the model's raw
+  parametric memory when available; never invent citation URLs (the model
+  is explicitly told not to — citations come only from real
+  `groundingMetadata`). Language-learning content must use real native
+  script, not transliteration-only or a script-free description (see the
+  `LANGUAGE-LEARNING TOPICS` block in `lib/gemini.ts`).
+- **No silent fallback content, ever.** This was the actual root cause of
+  every past "repetitive/useless" regression — a hardcoded generic
+  lesson/roadmap substituted in whenever a real Gemini call failed,
+  indistinguishable from genuine success once rendered. This was removed
+  deliberately (see Project State below) and must not come back in any
+  form — not a hardcoded deck, not a "safe default" module list used as
+  primary content, nothing that stands in for a real model response
+  without the user being told generation failed. A failure must `throw`
+  and surface as a real, debuggable error (`GeminiEngineError` →
+  `lessons.generation_error` → `LessonBlockedView` / omni-prompt-bar), not
+  degrade quietly into something that looks like success.
+- **Before merging any change to `lib/gemini.ts`,
+  `lib/gemini/lesson-plans.ts`, `lib/gemini/schemas.ts`,
+  `lib/generation/lazy.ts`, or `app/actions/generation.ts`**, re-verify by
+  reading the code path end-to-end that all of the above still holds. This
+  can and should be done statically (read the prompt strings, the schema,
+  the per-lesson plan construction) — you do not need a live API call to
+  confirm a fallback wasn't reintroduced or that two lessons don't share a
+  topic string.
+
+## Gemini API cost rule — read before testing anything
+
+**Never run live Gemini API calls to test or verify a change unless the
+user has explicitly authorized that specific test in the current
+conversation.** There is no separate "test" quota — every call (including
+`scripts/debug-*.ts`, manually triggering course creation in a dev server,
+etc.) spends the same real, paid quota the user is budgeting for
+production use. This has already caused unexpected charges once; don't
+repeat it.
+
+- Default to static verification: read the code, `tsc --noEmit`, lint,
+  `next build`, and reasoning through the prompt/schema/plan logic by hand.
+  This covers almost everything needed to confirm generation quality
+  guardrails (above) still hold.
+- If a live call is genuinely the only way to confirm a fix works, **ask
+  the user first**, and if they agree, run the smallest possible test —
+  one `quick_answer`-tier single-lesson generation, not a full
+  `complete_mastery` course — using `scripts/debug-lesson-gen.ts` rather
+  than a full course flow.
+- If you're unsure whether a check counts as "live", assume it does and
+  ask.
+<!-- END:content-quality-guardrails -->
+
 <!-- BEGIN:multi-agent-workflow -->
 # Working here as an AI coding agent (Cursor + Codex etc.)
 
