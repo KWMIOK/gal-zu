@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, CheckCircle2, Clock } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock, Loader2 } from "lucide-react";
 
 import { DeleteCourseButton } from "@/components/courses/delete-course-button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -27,7 +27,15 @@ function CourseCard({ course }: { course: CourseWithProgress }) {
           </h3>
         </Link>
         <div className="flex shrink-0 items-center gap-1">
-          {course.progressPercent === 100 ? (
+          {course.status === "classifying" ? (
+            <span title="Still building">
+              <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+            </span>
+          ) : course.status === "failed" ? (
+            <span title="Build failed — open to retry">
+              <Clock className="h-5 w-5 text-red-400" />
+            </span>
+          ) : course.progressPercent === 100 ? (
             <CheckCircle2 className="h-5 w-5 text-emerald-500" />
           ) : (
             <Clock className="h-5 w-5 text-zinc-400" />

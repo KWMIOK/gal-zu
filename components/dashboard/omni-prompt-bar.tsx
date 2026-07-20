@@ -95,9 +95,11 @@ export function OmniPromptBar({
     startTransition(async () => {
       try {
         const result = await createCourseFromPrompt(prompt, options);
-        router.push(
-          `/courses/${result.courseId}/lessons/${result.firstLessonId}`,
-        );
+        // Classification + lesson 1 aren't ready yet at this point — they
+        // build lazily the moment the course page opens (see
+        // ensureCourseClassified in lib/generation/lazy.ts) so this
+        // redirect itself is fast and can't be the thing that crashes.
+        router.push(`/courses/${result.courseId}`);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Something went wrong.";
@@ -244,9 +246,7 @@ export function OmniPromptBar({
             <div className="h-2 animate-pulse rounded-full bg-violet-200 dark:bg-violet-900" />
             <div className="h-2 w-4/5 animate-pulse rounded-full bg-violet-200 dark:bg-violet-900" />
             <p className="text-sm text-violet-700 dark:text-violet-300">
-              {depth === "quick_answer"
-                ? "Building your lesson deck…"
-                : "Building your roadmap and the first lesson (this may take a minute)… the rest of the course fills in as you go."}
+              Creating your course…
             </p>
           </div>
         ) : null}
