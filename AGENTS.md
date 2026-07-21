@@ -300,6 +300,26 @@ entitlements) are done.
 
 ## Known open items
 
+- **(Fixed 2026-07-21, watch for recurrence) `package-lock.json` can drift
+  and silently break `npm ci` on Linux while looking fine on Windows.**
+  Root cause found this time: `@tailwindcss/oxide-wasm32-wasi`'s
+  `bundleDependencies` (`@emnapi/core`/`@emnapi/runtime`) weren't fully
+  represented in the lockfile — npm on Windows never resolves that
+  wasm32-wasi optional-platform subtree locally, so `npm install`/`npm
+  ci` looked completely healthy here, but any Linux runner (GitHub
+  Actions, and *very likely Vercel's build machine too*) failed `npm ci`
+  outright. This was caught via the scheduled `gemini-model-check.yml`
+  Action failing at its `npm ci` step — worth checking that workflow's
+  recent runs (`gh run list --workflow=gemini-model-check.yml`) if a fix
+  that's merged to `main` doesn't seem to show up on the live site,
+  since a failed Vercel build silently leaves production on the last
+  *successful* deploy with no obvious error surfaced to either the user
+  or whichever agent merged the fix. Fixed by regenerating the lockfile
+  with the same npm version the Linux runner uses (npm 10.8.2, matches
+  Actions' Node 20 setup) rather than whatever npm ships with locally,
+  and verifying a clean `npm ci` + `next build` before merging. If this
+  recurs, check `npm ci` against the *exact* Node/npm version the CI/
+  Vercel build uses, not just against your local npm.
 - Confirmed (2026-07-20, via web search) that Vercel Hobby's real ceiling
   with Fluid Compute is 300s, matching our `maxDuration = 300` — Pro/
   Enterprise go to 800s (1800s extended, beta). Not the previous unknown
