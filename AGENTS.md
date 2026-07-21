@@ -300,6 +300,20 @@ entitlements) are done.
 
 ## Known open items
 
+- **(2026-07-21) Vercel's GitHub integration silently disconnected for
+  ~24h** (18 pushes to `main` with zero deployment records, not even
+  failed ones — confirmed via `gh api repos/<owner>/<repo>/deployments`).
+  User reconnected it in the dashboard, but the dashboard's "Redeploy"
+  button on an existing deployment card **rebuilds that card's exact
+  original commit** — it does not pull the latest `main`. That produced
+  a second red herring: a fresh-looking deploy that was still 18 commits
+  stale. If a merged fix doesn't show up live after a redeploy, check
+  `gh api repos/<owner>/<repo>/deployments | jq '.[0].sha'` against
+  `git rev-parse main` before assuming the code itself is still broken
+  — don't rely on "I redeployed" alone as confirmation the latest commit
+  is live. The reliable way to force a real rebuild of current `main` is
+  a genuine new push (even a trivial one), not the dashboard's Redeploy
+  action on an old card.
 - **(Fixed 2026-07-21, watch for recurrence) `package-lock.json` can drift
   and silently break `npm ci` on Linux while looking fine on Windows.**
   Root cause found this time: `@tailwindcss/oxide-wasm32-wasi`'s
