@@ -149,12 +149,25 @@ export function SlideDeckViewer({
             status={tts.status}
             supported={tts.supported}
             hasText={Boolean(slide.spoken_narration)}
+            muted={tts.muted}
             onPlay={() => {
+              // Pressing play while muted should also unmute — otherwise the
+              // button would silently do nothing (speak is mute-gated).
+              if (tts.muted) tts.setMuted(false);
               if (tts.status === "paused") tts.resume();
               else tts.speak(slide.spoken_narration);
             }}
             onPause={tts.pause}
             onReplay={tts.replay}
+            onToggleMute={() => {
+              const next = !tts.muted;
+              tts.setMuted(next);
+              // Unmuting mid-slide immediately narrates the current slide so
+              // the button feels responsive rather than silent until the
+              // next navigation. (Muting is handled inside setMuted, which
+              // cancels any in-flight narration.)
+              if (!next) tts.speak(slide.spoken_narration);
+            }}
           />
           <button
             type="button"
