@@ -48,6 +48,29 @@ export interface NeurodivergentAccommodations {
   math_anxiety: MathAnxietyAccommodations;
 }
 
+/**
+ * Usage-derived learning signals (updated locally on lesson/quiz events —
+ * never via a Gemini call). Merged into generation prompts alongside the
+ * learner's declared preferences so the app adapts over time.
+ */
+export interface LearningAdaptation {
+  /** Soft affinity scores in [0, 1] inferred from completed lesson formats. */
+  style_affinity: {
+    visual: number;
+    auditory: number;
+    hands_on: number;
+    reading_writing: number;
+  };
+  /** Inferred from ADHD prefs + completion patterns. */
+  preferred_chunk: "micro" | "short" | "standard";
+  lessons_completed: number;
+  quizzes_taken: number;
+  quiz_correct_rate: number;
+  /** Rolling average of quiz scores (0–100). */
+  recent_quiz_scores: number[];
+  updated_at: string | null;
+}
+
 export type ScopeType = "micro" | "unit" | "macro";
 
 /** Subscription tier — drives the daily generation cap (see `lib/generation/quota.ts`). */
@@ -195,6 +218,8 @@ export interface UserProfile {
   id: UserProfileId;
   learning_styles: LearningStyles;
   neurodivergent_accommodations: NeurodivergentAccommodations;
+  /** Usage-derived adaptation — see LearningAdaptation. Defaults to empty. */
+  learning_adaptation: LearningAdaptation;
   /** Defaults to "free" for every user until a RevenueCat webhook says otherwise. */
   plan_tier: PlanTier;
   subscription_status: SubscriptionStatus;
@@ -286,6 +311,7 @@ export type UserProfileInsert = {
   id: UserProfileId;
   learning_styles?: LearningStyles;
   neurodivergent_accommodations?: NeurodivergentAccommodations;
+  learning_adaptation?: LearningAdaptation;
 };
 
 export type UserProfileUpdate = Partial<
@@ -293,6 +319,7 @@ export type UserProfileUpdate = Partial<
     UserProfile,
     | "learning_styles"
     | "neurodivergent_accommodations"
+    | "learning_adaptation"
     | "plan_tier"
     | "subscription_status"
     | "subscription_expires_at"
@@ -361,19 +388,38 @@ export const DEFAULT_NEURODIVERGENT_ACCOMMODATIONS: NeurodivergentAccommodations
       chunk_size_minutes: 5,
       reduced_distractions: true,
     },
+    // Sub-flags stay off until the learner enables the accommodation —
+    // previously visual_math_aids/step_by_step defaulted true and the prompt
+    // builder OR'd them with enabled, so almost every user got dyscalculia
+    // instructions and preferences looked identical.
     dyscalculia: {
       enabled: false,
-      visual_math_aids: true,
-      step_by_step_breakdown: true,
+      visual_math_aids: false,
+      step_by_step_breakdown: false,
       color_coded_numbers: false,
     },
     math_anxiety: {
       enabled: false,
-      gentle_progression: true,
-      hide_timers: true,
-      encouragement_prompts: true,
+      gentle_progression: false,
+      hide_timers: false,
+      encouragement_prompts: false,
     },
   };
+
+export const DEFAULT_LEARNING_ADAPTATION: LearningAdaptation = {
+  style_affinity: {
+    visual: 0,
+    auditory: 0,
+    hands_on: 0,
+    reading_writing: 0,
+  },
+  preferred_chunk: "standard",
+  lessons_completed: 0,
+  quizzes_taken: 0,
+  quiz_correct_rate: 0,
+  recent_quiz_scores: [],
+  updated_at: null,
+};
 
 export type Database = {
   public: {
@@ -384,6 +430,7 @@ export type Database = {
           id: string;
           learning_styles?: LearningStyles;
           neurodivergent_accommodations?: NeurodivergentAccommodations;
+          learning_adaptation?: LearningAdaptation;
           plan_tier?: PlanTier;
           subscription_status?: SubscriptionStatus;
           subscription_expires_at?: string | null;
@@ -396,6 +443,7 @@ export type Database = {
           id?: string;
           learning_styles?: LearningStyles;
           neurodivergent_accommodations?: NeurodivergentAccommodations;
+          learning_adaptation?: LearningAdaptation;
           plan_tier?: PlanTier;
           subscription_status?: SubscriptionStatus;
           subscription_expires_at?: string | null;

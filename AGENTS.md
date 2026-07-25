@@ -287,6 +287,14 @@ entitlements) are done.
   mount was removed — it burned quota without consent (see User-facing
   AI spend above). `prefetchNextPendingLesson` remains only as an
   explicit helper for a future opt-in control, never auto-invoked.
+- **Preference-tailored generation.** Declared styles/pace/accommodations
+  must change both prompt content *and* structure (slide counts, lesson
+  formats). Usage signals in `user_profiles.learning_adaptation` update
+  on lesson complete / quiz finish with **no Gemini call**, then feed
+  the next generation. Never OR accommodation sub-flags with `enabled`
+  (that bug made dyscalculia instructions fire for almost everyone).
+  Already-ready lessons are not rewritten when prefs change — only new
+  courses and still-pending lessons pick up the latest profile.
 - **Topic-aware depth tiers.** Four `PromptDepth` tiers — `quick_answer`,
   `overview`, `deep_dive`, `complete_mastery` — each with its own module
   count range, lessons-per-module, and slide range
@@ -303,6 +311,9 @@ entitlements) are done.
 
 - `lib/gemini.ts` — model client, `generateStructuredJson` (retry
   engine), `classifyAndBuildRoadmap`, `generateLessonPayload`.
+- `lib/generation/profile-adaptation.ts` — preference → prompt
+  directives, slide-range / format picking, and zero-cost
+  `learning_adaptation` signal merging (usage-based personalization).
 - `lib/gemini/schemas.ts`, `lib/gemini/json.ts` — Zod schemas + JSON
   sanitization for Gemini responses.
 - `lib/gemini/lesson-plans.ts` — depth tiers, roadmap scaling, lesson

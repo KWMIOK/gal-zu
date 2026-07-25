@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { ANIMATION_TAGS } from "@/lib/animations/lottie-map";
 import { getServerEnv } from "@/lib/env";
 import { parseJsonUnknown } from "@/lib/gemini/json";
+import { buildProfileAdaptationInstructions } from "@/lib/generation/profile-adaptation";
 import {
   buildScopeHints,
   sanitizeCourseText,
@@ -78,32 +79,6 @@ function getGeminiClient(): GoogleGenAI {
     geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
   }
   return geminiClient;
-}
-
-function buildProfileAdaptationInstructions(profile: UserProfile): string {
-  const { learning_styles: ls, neurodivergent_accommodations: nd } = profile;
-  const lines: string[] = [
-    "Adapt content to this learner profile:",
-    `- Learning styles: visual=${ls.visual}, auditory=${ls.auditory}, hands_on=${ls.hands_on}, reading_writing=${ls.reading_writing}, pace=${ls.preferred_pace ?? "moderate"}.`,
-  ];
-
-  if (nd.adhd.enabled || nd.adhd.micro_learning_mode) {
-    lines.push(
-      "- ADHD / micro-learning: use short chunks, one idea per slide, scannable bullets, optional break prompts.",
-    );
-  }
-  if (nd.dyscalculia.enabled || nd.dyscalculia.visual_math_aids) {
-    lines.push(
-      "- Dyscalculia: step-by-step math, visual metaphors, mention color-coded numbers in visual_hint when relevant.",
-    );
-  }
-  if (nd.math_anxiety.enabled) {
-    lines.push(
-      "- Math anxiety: warm encouraging tone, no pressure language, gentle progression, hints encouraged.",
-    );
-  }
-
-  return lines.join("\n");
 }
 
 const EDUCATOR_SYSTEM_PREAMBLE = `You are an expert master educator for Gal-zu.
@@ -454,11 +429,19 @@ Scope rules (four depth tiers — pick modules WITHIN the given range based on h
 - overview: scope_type "unit" — 2 to 4 modules. Use the low end for genuinely narrow topics (e.g. one theorem, one
   historical event) and the high end for topics with several distinct sub-areas.
 - deep_dive: scope_type "unit" — 4 to 7 modules covering the topic properly, including nuance and practice.
-- complete_mastery: scope_type "macro" — 5 to 14 modules across multiple phases. A narrow topic (e.g. "the
+-   complete_mastery: scope_type "macro" — 5 to 14 modules across multiple phases. A narrow topic (e.g. "the
   Pythagorean theorem") should still land near the low end even at this tier; a genuinely vast topic (e.g. "learn
   Japanese from scratch", "master calculus") should use significantly more of the range — a whole language or field
   cannot be honestly covered in 5 modules, so do not default there just because it's a round number. Every module
   needs a distinct, concrete, topic-specific title/description reflecting real curriculum progression.
+
+PROFILE-SHAPED ROADMAP (mandatory when profile asks for it):
+- ADHD / micro-learning: prefer MORE, SHORTER modules with bite-sized titles over fewer long modules.
+- Slow pace: favor foundational scaffolding modules before advanced ones; do not skip prerequisites.
+- Fast pace: you may compress basics and surface advanced application modules earlier.
+- Hands-on learners: first_lesson.format should prefer "quiz" or a practice-heavy slideshow topic.
+- Auditory learners: first_lesson.format may be "script" when a spoken lesson fits the topic.
+- Reading/writing learners: first_lesson.format may be "cheat_sheet" when a dense reference fits.
 ${buildProfileAdaptationInstructions(profile)}`;
 
   const userPrompt = [
