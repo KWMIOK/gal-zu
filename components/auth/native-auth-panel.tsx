@@ -16,8 +16,8 @@ type NativeAuthPanelProps = {
 
 /**
  * Capacitor-only sign-in / sign-up. Google uses the OS account picker
- * (Credential Manager bottom sheet on Android / Google Sign-In on iOS) and
- * exchanges the ID token with Clerk — no browser, Custom Tabs, or Chrome.
+ * (Credential Manager bottom sheet on Android / iOS Google Sign-In) and
+ * exchanges the ID token with Clerk — no browser.
  */
 export function NativeAuthPanel({ mode }: NativeAuthPanelProps) {
   const router = useRouter();
@@ -40,10 +40,7 @@ export function NativeAuthPanel({ mode }: NativeAuthPanelProps) {
         signUp,
         setActive,
       });
-      if (!createdSessionId) {
-        // User dismissed the system account sheet — stay quiet.
-        return;
-      }
+      if (!createdSessionId) return;
       router.replace(isSignIn ? "/dashboard" : "/onboarding");
     } catch (err) {
       setError(
@@ -55,14 +52,13 @@ export function NativeAuthPanel({ mode }: NativeAuthPanelProps) {
   }
 
   return (
-    <div className="w-full max-w-sm space-y-6 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="w-full space-y-5 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="space-y-1 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           {isSignIn ? "Sign in" : "Create your account"}
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Continue with Google opens a system account sheet inside the app —
-          nothing leaves Gal-zu.
+          Continue with Google — stays in the app.
         </p>
       </div>
 
@@ -90,7 +86,7 @@ export function NativeAuthPanel({ mode }: NativeAuthPanelProps) {
               href="/sign-up"
               className="font-medium text-violet-600 hover:underline dark:text-violet-400"
             >
-              Get started
+              Create account
             </Link>
           </>
         ) : (
