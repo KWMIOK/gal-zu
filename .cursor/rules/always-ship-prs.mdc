@@ -1,15 +1,14 @@
 ---
-description: Always commit finished work and open/update a PR without asking
+description: Always commit and push finished work straight to main
 alwaysApply: true
 ---
 
-# Always ship via PR
+# Always ship to main
 
 When finishing a chunk of work that changes the repo:
 
-1. Create a `cursor/<short-desc>` branch if not already on one (never commit straight to `main`).
-2. Commit the relevant changes (do not ask whether to commit).
-3. Push the branch and open a PR with `gh pr create` (or push to update an existing PR for the same work).
-4. Return the PR URL.
+1. Commit on `main` (create/switch to `main` if needed). Do **not** create feature branches or open PRs unless the user explicitly asks for one.
+2. Push to `origin/main`.
+3. Do not ask whether to commit or push.
 
-Do not wait for the user to say "commit" or "open a PR". Exceptions: secrets/credentials must never be committed; stop and report if the hard-stop guardrails in `AGENTS.md` apply.
+Exceptions: never commit secrets/credentials; stop and report if the hard-stop guardrails in `AGENTS.md` apply (payments, destructive git history, etc.).
