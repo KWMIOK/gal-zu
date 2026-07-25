@@ -306,6 +306,19 @@ entitlements) are done.
   — every individual Gemini call (classification, each lesson) checks
   the daily cap itself, since a course's lessons can now be generated
   well after the course-creation request returns.
+- **Capacitor Google is fully browser-free.** Stock Clerk `<SignIn />` /
+  modal buttons navigate the WebView to Google; Android ejects that to
+  Chrome. Native uses `startNativeGoogleAuth`
+  (`lib/capacitor/native-oauth.ts`): `@capgo/capacitor-social-login`
+  opens the OS account sheet (Android Credential Manager bottom sheet /
+  iOS Google Sign-In), then Clerk `signIn.create({ strategy:
+  'google_one_tap', token })` + `setActive`. UI:
+  `components/auth/native-auth-panel.tsx` via `AuthEntry`. Requires
+  `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (Google Cloud *Web* OAuth client —
+  usually the Client ID under Clerk → SSO → Google) plus an Android
+  OAuth client for `com.galzu.app` + signing SHA-1 in the same Cloud
+  project. `CapacitorAuthBridge` remains only as a cold-start deep-link
+  safety net; Google no longer uses Custom Tabs.
 
 ## Where things live
 
@@ -379,7 +392,10 @@ entitlements) are done.
   timeouts recur, in case Fluid Compute itself isn't enabled on the
   project.
 - Mobile (Capacitor) build needs a manual `npm run build:mobile` +
-  resync to pick up web changes; it does not auto-update.
+  resync to pick up web changes; it does not auto-update. Native Google
+  also needs `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` on the deployed origin
+  the app loads, and Google Cloud Android credentials matching the
+  installed APK's package + SHA-1.
 - `middleware.ts` is deprecated in this Next.js version in favor of
   `proxy` — not yet migrated, build just warns for now.
 

@@ -52,6 +52,19 @@ const config: CapacitorConfig = {
   appId: "com.galzu.app",
   appName: "Gal-zu",
   webDir: "www",
+  plugins: {
+    // Bundle only Google for native OS-account sign-in (Credential Manager /
+    // Google Sign-In SDK). Other social SDKs stay out of the APK/IPA.
+    SocialLogin: {
+      providers: {
+        google: true,
+        apple: false,
+        facebook: false,
+        twitter: false,
+      },
+      logLevel: 1,
+    },
+  },
   ...(remoteUrl
     ? {
         server: {
