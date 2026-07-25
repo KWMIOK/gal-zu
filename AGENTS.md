@@ -56,7 +56,36 @@ these are standing rules for every agent touching generation code.
   confirm a fallback wasn't reintroduced or that two lessons don't share a
   topic string.
 
-## Gemini API cost rule — read before testing anything
+## User-facing AI spend — standing priority #2 (consent + minimal)
+
+The learner's Gemini spend must stay **minimal and intentional**. This is
+a product rule for the running app, not just an agent testing rule. Treat
+regressions here as P0.
+
+- **Allowed without extra confirmation:** creating a course from the
+  prompt bar, and generating a lesson when the learner opens a still-
+  pending lesson. Those are the only "this spends AI" actions that do
+  not need a second approval step — the create/open gesture itself is
+  the permission.
+- **Everything else that calls Gemini must be opt-in.** The UI must
+  clearly say it uses AI / AI quota, and must not run until the learner
+  clicks that labeled control. Examples already covered: quiz AI hints
+  (`fetchQuizHintAction`) — wrong answers must never auto-spend; any
+  future "prepare next lesson", rewrite, TTS-via-API, or enrichment
+  feature must follow the same pattern.
+- **No silent / background Gemini spend.** Never prefetch, warm-start,
+  retry-in-the-background, or regenerate content from mount/complete/
+  navigation handlers just because it might make the next screen faster.
+  Reopening a ready course or ready lesson must be a free DB read.
+- **Prefer free paths first.** If a quiz already has a stored `hint` /
+  `explanation`, show those. Only offer an AI call as an explicit
+  upgrade, not as the default.
+- **Before merging any change that touches** `lib/gemini.ts`,
+  `lib/generation/lazy.ts`, `app/actions/lessons.ts`,
+  `app/actions/generation.ts`, or any UI that can invoke those — verify
+  statically that no new automatic spend path was introduced.
+
+## Gemini API cost rule — agents testing (permission gate)
 
 This is a **permission gate on agents acting autonomously**, not a
 technical cap on the app or on the user's own usage — nothing in the
@@ -250,16 +279,14 @@ entitlements) are done.
   for it. `courses.topic`/`depth`/`session_length` are persisted
   specifically so a retry has what it needs to re-run classification from
   scratch. Don't reintroduce classification inside the Server Action.
-- **Progressive/lazy lesson generation.** Course creation
-  (`app/actions/generation.ts`) only generates lesson 1 synchronously;
-  the rest are inserted as `pending` rows carrying a `generation_plan`
-  (topic/context/slide range), then filled in lazily — either on-demand
-  when a learner opens the lesson (`ensureLessonGenerated` in
-  `lib/generation/lazy.ts`, called from the lesson page) or prefetched
-  in the background via Next's `after()` (`prefetchNextPendingLesson`,
-  kicked off from course creation and from `completeLessonAction`). As of
-  Phase 7c, lesson 1 itself is part of the *lazy* classification step (see
-  above), not the Server Action — course creation is now just a DB insert.
+- **Progressive/lazy lesson generation (on open only).** Course creation
+  inserts a classifying row; classification + lesson 1 run via
+  `ensureCourseClassified`. Later lessons are `pending` rows with a
+  `generation_plan`, generated only when the learner opens that lesson
+  (`ensureLessonGenerated`). Background prefetch after create/complete/
+  mount was removed — it burned quota without consent (see User-facing
+  AI spend above). `prefetchNextPendingLesson` remains only as an
+  explicit helper for a future opt-in control, never auto-invoked.
 - **Topic-aware depth tiers.** Four `PromptDepth` tiers — `quick_answer`,
   `overview`, `deep_dive`, `complete_mastery` — each with its own module
   count range, lessons-per-module, and slide range

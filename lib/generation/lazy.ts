@@ -152,23 +152,18 @@ export async function ensureLessonGenerated(lessonId: string): Promise<Lesson> {
 }
 
 /**
- * Fire-and-forget warm-up for the next un-generated lesson in a course —
- * meant to be scheduled with `after()` from a Server Action (course
- * creation, lesson completion) so it runs after the response is already on
- * its way to the client instead of blocking it. Swallows all errors: this
- * is purely a latency optimization, `ensureLessonGenerated`'s synchronous
- * on-open call is the actual correctness guarantee if this never runs or
- * loses a race.
+ * Generates the next pending lesson in a course. Kept as an explicit helper
+ * for a future opt-in "Prepare next lesson" control — must NEVER be called
+ * automatically from mount/complete/create paths. Silent Gemini spend is
+ * banned (see AGENTS.md user-spend consent rules); `ensureLessonGenerated`
+ * on lesson open is the only automatic generation path besides course
+ * creation itself.
  */
 export async function prefetchNextPendingLesson(courseId: string): Promise<void> {
-  try {
-    const lessons = await listLessonsForCourse(courseId);
-    const next = lessons.find((l) => l.generation_status === "pending");
-    if (!next) return;
-    await ensureLessonGenerated(next.id);
-  } catch (error) {
-    console.error("[generation] background prefetch failed:", error);
-  }
+  const lessons = await listLessonsForCourse(courseId);
+  const next = lessons.find((l) => l.generation_status === "pending");
+  if (!next) return;
+  await ensureLessonGenerated(next.id);
 }
 
 /**
@@ -263,7 +258,10 @@ async function runCourseClassification(courseId: string): Promise<Course> {
       });
     }
 
-    const ready = await updateCourse(courseId, {
+    // No background prefetch of lesson 2+. Course creation + lesson 1 are
+    // the spend the learner already approved by starting the course; later
+    // lessons generate on open only (AGENTS.md user-spend consent rules).
+    return updateCourse(courseId, {
       title: classification.title,
       description: classification.description,
       scope_type: classification.scope_type,
@@ -271,12 +269,6 @@ async function runCourseClassification(courseId: string): Promise<Course> {
       status: "ready",
       generation_error: null,
     });
-
-    if (lessonPlans.length > 1) {
-      await prefetchNextPendingLesson(courseId);
-    }
-
-    return ready;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return updateCourse(courseId, { status: "failed", generation_error: message });
