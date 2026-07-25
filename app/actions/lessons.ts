@@ -22,21 +22,9 @@ export async function completeLessonAction(
 
   // Warm up whatever's next while the learner is looking at the "lesson
   // complete" screen deciding whether to continue — see lib/generation/lazy.ts.
-  after(() => prefetchNextPendingLesson(courseId));
-}
-
-/**
- * Fire-and-forget background warm-up, triggered from the client the moment
- * a lesson page mounts (see LessonRenderer) — keeps the "next pending
- * lesson" generation a step ahead of the learner even before they finish
- * the current one. Must run as a Server Action (not called directly from a
- * Server Component) so `after()` can access the authenticated Supabase
- * client it needs — see the `after` API's Server Component restrictions.
- */
-export async function prefetchNextLessonAction(courseId: string): Promise<void> {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-
+  // Deliberately NOT also triggered on lesson-page mount: revisiting a ready
+  // lesson must be free; only finishing one should spend a Gemini call on
+  // the next pending lesson.
   after(() => prefetchNextPendingLesson(courseId));
 }
 
