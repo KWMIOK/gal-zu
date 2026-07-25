@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ChevronRight, PartyPopper } from "lucide-react";
 
-import {
-  completeLessonAction,
-  prefetchNextLessonAction,
-} from "@/app/actions/lessons";
+import { completeLessonAction } from "@/app/actions/lessons";
 import { DeleteLessonButton } from "@/components/lessons/delete-lesson-button";
 import {
   CheatSheetViewer,
@@ -35,9 +32,12 @@ export function LessonRenderer({
 }) {
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    prefetchNextLessonAction(courseId).catch(() => {});
-  }, [courseId, lesson.id]);
+  // Intentionally no mount-time prefetch. Reopening a ready lesson used to
+  // fire `prefetchNextLessonAction` here, which quietly spent a Gemini call
+  // generating the *next* pending lesson every time the learner just
+  // revisited content they already had. Warm-up still happens once, when
+  // they actually finish a lesson (`completeLessonAction` → after()
+  // prefetch). Opening a still-pending lesson generates that one on demand.
 
   function markComplete() {
     startTransition(async () => {

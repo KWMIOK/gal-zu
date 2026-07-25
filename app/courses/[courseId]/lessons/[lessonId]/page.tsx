@@ -12,9 +12,8 @@ import { stripCapReachedPrefix } from "@/lib/generation/quota-shared";
 // This page can synchronously await `ensureLessonGenerated`, which retries
 // across model candidates with backoff before giving up (no more silent
 // placeholder fallback — see lib/gemini.ts), and also raises the timeout
-// for Server Actions invoked from here (completeLessonAction,
-// prefetchNextLessonAction). Actual ceiling still depends on the hosting
-// plan's own function duration limit.
+// for Server Actions invoked from here (completeLessonAction). Actual
+// ceiling still depends on the hosting plan's own function duration limit.
 export const maxDuration = 300;
 
 export default async function LessonPage({
