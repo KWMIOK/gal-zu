@@ -1,6 +1,10 @@
 import { randomUUID } from "crypto";
 
 import type { PromptDepth } from "@/lib/generation/create-course";
+import {
+  adjustSlideRangeForProfile,
+  pickLessonFormatsForModule,
+} from "@/lib/generation/profile-adaptation";
 import type { GeminiGenerationContext } from "@/lib/generation/prompt";
 import type {
   LessonFormat,
@@ -8,6 +12,7 @@ import type {
   RoadmapPhase,
   RoadmapTree,
   ScopeType,
+  UserProfile,
 } from "@/types/database";
 
 export type ClassificationSnapshot = {
@@ -190,15 +195,19 @@ export function buildLessonPlans(
   classification: ClassificationSnapshot,
   cleanTopic: string,
   context?: GeminiGenerationContext,
+  profile?: UserProfile,
 ): PlannedLesson[] {
   const config = depthTierConfig(context);
 
   if (!config) {
+    const format = profile
+      ? pickLessonFormatsForModule(1, profile, classification.first_lesson.format)[0]
+      : classification.first_lesson.format;
     return [
       {
         title: classification.first_lesson.title,
         topic: classification.first_lesson.topic,
-        format: classification.first_lesson.format,
+        format,
         moduleId:
           classification.roadmap_tree.phases[0]?.modules[0]?.id ?? "mod_1",
         phaseTitle:
@@ -214,11 +223,15 @@ export function buildLessonPlans(
 
   for (const phase of classification.roadmap_tree.phases) {
     for (const mod of phase.modules) {
+      const formats = profile
+        ? pickLessonFormatsForModule(config.lessonsPerModule, profile)
+        : Array.from({ length: config.lessonsPerModule }, () => "slideshow" as LessonFormat);
+
       if (config.lessonsPerModule === 1) {
         plans.push({
           title: mod.title,
           topic: `${cleanTopic}: ${mod.title}`,
-          format: "slideshow",
+          format: formats[0] ?? "slideshow",
           moduleId: mod.id,
           phaseTitle: phase.title,
           moduleTitle: mod.title,
@@ -229,7 +242,7 @@ export function buildLessonPlans(
       plans.push({
         title: `${mod.title} — Foundations`,
         topic: `${cleanTopic}: ${mod.title} (core concepts and examples)`,
-        format: "slideshow",
+        format: formats[0] ?? "slideshow",
         moduleId: mod.id,
         phaseTitle: phase.title,
         moduleTitle: mod.title,
@@ -237,7 +250,7 @@ export function buildLessonPlans(
       plans.push({
         title: `${mod.title} — Practice & nuance`,
         topic: `${cleanTopic}: ${mod.title} (application, pitfalls, and drills)`,
-        format: "slideshow",
+        format: formats[1] ?? "slideshow",
         moduleId: mod.id,
         phaseTitle: phase.title,
         moduleTitle: mod.title,
@@ -248,12 +261,16 @@ export function buildLessonPlans(
   return plans;
 }
 
-export function slideCountTarget(context?: GeminiGenerationContext): {
+export function slideCountTarget(
+  context?: GeminiGenerationContext,
+  profile?: UserProfile,
+): {
   min: number;
   max: number;
 } {
   const config = depthTierConfig(context);
-  return config?.slideRange ?? { min: 5, max: 6 };
+  const base = config?.slideRange ?? { min: 5, max: 6 };
+  return profile ? adjustSlideRangeForProfile(base, profile) : base;
 }
 
 export { DEPTH_TIER_CONFIG };

@@ -1,6 +1,8 @@
 import {
+  DEFAULT_LEARNING_ADAPTATION,
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
+  type LearningAdaptation,
   type LearningStyles,
   type NeurodivergentAccommodations,
   type UserProfile,
@@ -26,16 +28,32 @@ export function normalizeNeurodivergentAccommodations(
   };
 }
 
+export function normalizeLearningAdaptation(
+  raw: Partial<LearningAdaptation> | null | undefined,
+): LearningAdaptation {
+  return {
+    ...DEFAULT_LEARNING_ADAPTATION,
+    ...(raw ?? {}),
+    style_affinity: {
+      ...DEFAULT_LEARNING_ADAPTATION.style_affinity,
+      ...(raw?.style_affinity ?? {}),
+    },
+    recent_quiz_scores: [...(raw?.recent_quiz_scores ?? [])],
+  };
+}
+
 export function normalizeUserProfileRow(
   profile: UserProfile | null,
 ): {
   learning_styles: LearningStyles;
   neurodivergent_accommodations: NeurodivergentAccommodations;
+  learning_adaptation: LearningAdaptation;
 } {
   if (!profile) {
     return {
       learning_styles: { ...DEFAULT_LEARNING_STYLES },
       neurodivergent_accommodations: { ...DEFAULT_NEURODIVERGENT_ACCOMMODATIONS },
+      learning_adaptation: { ...DEFAULT_LEARNING_ADAPTATION },
     };
   }
 
@@ -44,6 +62,7 @@ export function normalizeUserProfileRow(
     neurodivergent_accommodations: normalizeNeurodivergentAccommodations(
       profile.neurodivergent_accommodations,
     ),
+    learning_adaptation: normalizeLearningAdaptation(profile.learning_adaptation),
   };
 }
 
@@ -66,13 +85,14 @@ export function profilePreferenceSummary(
   if (styles.length) bits.push(`Styles: ${styles.join(", ")}`);
   if (ls.preferred_pace) bits.push(`Pace: ${ls.preferred_pace}`);
 
-  if (nd.adhd.enabled || nd.adhd.micro_learning_mode) {
-    bits.push("ADHD micro-learning");
-  }
-  if (nd.dyscalculia.enabled || nd.dyscalculia.color_coded_numbers) {
-    bits.push("Dyscalculia supports");
-  }
+  if (nd.adhd.enabled) bits.push("ADHD micro-learning");
+  if (nd.dyscalculia.enabled) bits.push("Dyscalculia supports");
   if (nd.math_anxiety.enabled) bits.push("Low-pressure math mode");
+
+  const adapt = normalizeLearningAdaptation(profile?.learning_adaptation);
+  if (adapt.lessons_completed >= 3) {
+    bits.push("Adapting from your usage");
+  }
 
   return bits;
 }

@@ -2,7 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/service-role";
+import { normalizeUserProfileRow } from "@/lib/user-profile-normalize";
 import {
+  DEFAULT_LEARNING_ADAPTATION,
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
   type Course,
@@ -86,6 +88,8 @@ export async function createUserProfile(
     neurodivergent_accommodations:
       input.neurodivergent_accommodations ??
       DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
+    learning_adaptation:
+      input.learning_adaptation ?? DEFAULT_LEARNING_ADAPTATION,
   };
 
   const result = await supabase.from("user_profiles").insert(row).select().single();
@@ -97,7 +101,13 @@ export async function getOrCreateUserProfile(): Promise<UserProfile> {
   const { userId } = await getAuthedSupabase();
   const existing = await getUserProfile(userId);
   if (existing) {
-    return existing;
+    const normalized = normalizeUserProfileRow(existing);
+    return {
+      ...existing,
+      learning_styles: normalized.learning_styles,
+      neurodivergent_accommodations: normalized.neurodivergent_accommodations,
+      learning_adaptation: normalized.learning_adaptation,
+    };
   }
   return createUserProfile({ id: userId });
 }

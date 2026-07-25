@@ -9,6 +9,7 @@
  */
 import { classifyAndBuildRoadmap } from "../lib/gemini";
 import {
+  DEFAULT_LEARNING_ADAPTATION,
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
   type UserProfile,
@@ -18,6 +19,7 @@ const fakeProfile: UserProfile = {
   id: "debug_user",
   learning_styles: DEFAULT_LEARNING_STYLES,
   neurodivergent_accommodations: DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
+  learning_adaptation: DEFAULT_LEARNING_ADAPTATION,
   plan_tier: "pro",
   subscription_status: "none",
   subscription_expires_at: null,

@@ -4,7 +4,10 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, HelpCircle, Loader2, XCircle } from "lucide-react";
 
-import { fetchQuizHintAction } from "@/app/actions/lessons";
+import {
+  fetchQuizHintAction,
+  recordQuizOutcomeAction,
+} from "@/app/actions/lessons";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { QuizContent } from "@/types/database";
 import type { FinishedCta } from "@/components/lessons/slide-deck-viewer";
@@ -66,6 +69,8 @@ export function QuizViewer({
     if (index + 1 >= content.questions.length) {
       setDone(true);
       const pct = Math.round((correctCount / content.questions.length) * 100);
+      // Free adaptation signal — no Gemini spend.
+      void recordQuizOutcomeAction(pct, content.questions.length);
       if (pct >= passing) onComplete?.();
       return;
     }

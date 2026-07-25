@@ -82,8 +82,10 @@ export function OnboardingWizard({
           Tune your learning experience
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Saved preferences are loaded into every Gemini roadmap and lesson
-          (slide length, tone, ADHD/dyscalculia/math-anxiety adaptations).
+          These shape every new course and lesson — slide length, lesson
+          formats (quiz vs slides vs script), tone, and accommodations. The
+          app also learns from how you use it and refines later lessons
+          (no extra AI cost for that).
         </p>
       </div>
 
@@ -165,8 +167,8 @@ export function OnboardingWizard({
                 dyscalculia: {
                   ...prev.dyscalculia,
                   enabled: checked,
-                  visual_math_aids: true,
-                  step_by_step_breakdown: true,
+                  visual_math_aids: checked,
+                  step_by_step_breakdown: checked,
                   color_coded_numbers: checked,
                 },
               }));
@@ -184,7 +186,7 @@ export function OnboardingWizard({
                 math_anxiety: {
                   ...prev.math_anxiety,
                   enabled: checked,
-                  gentle_progression: true,
+                  gentle_progression: checked,
                   hide_timers: checked,
                   encouragement_prompts: checked,
                 },
@@ -202,7 +204,8 @@ export function OnboardingWizard({
         {saved && mode === "settings" ? (
           <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
             <CheckCircle2 className="h-4 w-4" />
-            Preferences saved — new courses will use these settings.
+            Preferences saved — new courses and ungenerated lessons will use
+            these settings.
           </p>
         ) : null}
 

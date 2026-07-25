@@ -215,8 +215,13 @@ async function runCourseClassification(courseId: string): Promise<Course> {
       .filter(Boolean)
       .join("\n");
 
-    const lessonPlans = buildLessonPlans(classification, claimed.topic, generationContext);
-    const slides = slideCountTarget(generationContext);
+    const lessonPlans = buildLessonPlans(
+      classification,
+      claimed.topic,
+      generationContext,
+      profile,
+    );
+    const slides = slideCountTarget(generationContext, profile);
 
     // Only lesson 1 is generated synchronously here too — everything after
     // that is a `pending` placeholder filled in lazily, exactly like before
