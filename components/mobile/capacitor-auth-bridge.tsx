@@ -3,20 +3,18 @@
 import { useEffect } from "react";
 import { App, type URLOpenListenerEvent } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
+
 import { isNativePlatform } from "@/lib/capacitor/is-native";
+import { isNativeOAuthInFlight } from "@/lib/capacitor/native-oauth";
 
 const DEEP_LINK_SCHEME = "com.galzu.app://";
 
 /**
- * Mounted once near the root of the app. On native (Android/iOS) it listens
- * for the `com.galzu.app://...` deep link that the system browser opens once
- * an OAuth provider (Google, GitHub, etc.) finishes sign-in outside the app's
- * WebView, closes that system browser tab, and forwards the callback path +
- * query params into *this* WebView so Clerk's `AuthenticateWithRedirectCallback`
- * (rendered on `/sso-callback`) can complete the session using this WebView's
- * own session/cookie context.
- *
- * No-op on web — regular browser OAuth redirects never touch this code path.
+ * Cold-start fallback for OAuth deep links (e.g. leftover Custom-Tabs flows
+ * or non-Google SSO). Google sign-in is fully native now
+ * (`startNativeGoogleAuth`) and does not use this path. When the app is
+ * opened via `com.galzu.app://sso-callback…`, close any in-app browser tab
+ * and hand the callback to `/sso-callback` so Clerk can finish the session.
  */
 export function CapacitorAuthBridge() {
   useEffect(() => {
@@ -26,7 +24,9 @@ export function CapacitorAuthBridge() {
       "appUrlOpen",
       (event: URLOpenListenerEvent) => {
         if (!event.url.startsWith(DEEP_LINK_SCHEME)) return;
+        if (isNativeOAuthInFlight()) return;
 
+        // Custom schemes parse as host+path oddly in URL(); slice the scheme.
         const suffix = event.url.slice(DEEP_LINK_SCHEME.length);
         const targetPath = suffix.startsWith("sso-callback")
           ? suffix

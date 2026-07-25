@@ -1,13 +1,9 @@
-import {
-  ClerkProvider,
-  Show,
-  SignInButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+import { ClerkProvider, Show } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
+import { HeaderAuthButtons } from "@/components/auth/header-auth-buttons";
 import { CapacitorAuthBridge } from "@/components/mobile/capacitor-auth-bridge";
 import { RevenueCatInitializer } from "@/components/mobile/revenuecat-initializer";
 
@@ -59,24 +55,7 @@ export default async function RootLayout({
                 Gal-zu
               </Link>
               <nav className="flex items-center gap-3 text-sm">
-                <Show when="signed-out">
-                  <SignInButton mode="modal">
-                    <button
-                      type="button"
-                      className="rounded-lg px-3 py-1.5 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                    >
-                      Sign in
-                    </button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <button
-                      type="button"
-                      className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500"
-                    >
-                      Get started
-                    </button>
-                  </SignUpButton>
-                </Show>
+                <HeaderAuthButtons />
                 <Show when="signed-in">
                   <Link
                     href="/dashboard"
