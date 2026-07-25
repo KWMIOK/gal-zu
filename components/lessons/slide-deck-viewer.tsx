@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Expand,
+  Quote,
   Shrink,
   StickyNote,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import {
 import { GlassCard } from "@/components/ui/glass-card";
 import { InteractiveWidgetPlayer } from "@/components/lessons/interactive-widget";
 import { LottieSlideAnimation } from "@/components/lessons/lottie-slide-animation";
+import { SlideRichText } from "@/components/lessons/slide-rich-text";
 import { TtsControls } from "@/components/lessons/tts-controls";
 import { useSpeechSynthesis } from "@/lib/tts/use-speech-synthesis";
 import type { SlideContent } from "@/types/database";
@@ -37,6 +39,7 @@ export function SlideDeckViewer({
   const slides = content.slides;
   const [index, setIndex] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [solvedWidgets, setSolvedWidgets] = useState<Set<string>>(new Set());
   const [finished, setFinished] = useState(Boolean(alreadyCompleted));
@@ -45,6 +48,7 @@ export function SlideDeckViewer({
   const progress = ((index + 1) / slides.length) * 100;
   const isLastSlide = index >= slides.length - 1;
   const slideText = slide.text_content ?? slide.body ?? "";
+  const hasCitations = (content.citations?.length ?? 0) > 0;
   const widgetLocked = Boolean(
     slide.interactive_widget && !solvedWidgets.has(slide.id),
   );
@@ -177,6 +181,19 @@ export function SlideDeckViewer({
             <StickyNote className="h-4 w-4" />
             Notes
           </button>
+          {hasCitations ? (
+            <button
+              type="button"
+              onClick={() => setShowSources((v) => !v)}
+              aria-pressed={showSources}
+              className={`inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                showSources ? "text-violet-600 dark:text-violet-400" : ""
+              }`}
+            >
+              <Quote className="h-4 w-4" />
+              Sources
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={toggleFullscreen}
@@ -214,9 +231,7 @@ export function SlideDeckViewer({
             <h2 className="text-center text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 md:text-left">
               {slide.title}
             </h2>
-            <p className="text-lg leading-relaxed text-zinc-700 dark:text-zinc-300">
-              {slideText}
-            </p>
+            <SlideRichText text={slideText} />
             {slide.callout ? (
               <p className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-100">
                 {slide.callout}
@@ -251,7 +266,7 @@ export function SlideDeckViewer({
         </p>
       ) : null}
 
-      <CitationsFooter citations={content.citations} />
+      {showSources ? <CitationsFooter citations={content.citations} /> : null}
 
       {showFinishedCta ? (
         <div className="relative z-10 flex flex-col items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center dark:border-emerald-900 dark:bg-emerald-950/40">
