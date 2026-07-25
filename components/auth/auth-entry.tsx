@@ -4,14 +4,14 @@ import { SignIn, SignUp } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
 import { NativeAuthPanel } from "@/components/auth/native-auth-panel";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 import { isNativePlatform } from "@/lib/capacitor/is-native";
 
 type Mode = "sign-in" | "sign-up";
 
 /**
- * Web keeps Clerk's hosted `<SignIn />` / `<SignUp />` components.
- * Capacitor uses `NativeAuthPanel` so OAuth never navigates the WebView
- * (and never ejects to Chrome).
+ * Web keeps Clerk's hosted `<SignIn />` / `<SignUp />` components
+ * (styled via `clerkAppearance`). Capacitor uses `NativeAuthPanel`.
  */
 export function AuthEntry({ mode }: { mode: Mode }) {
   const [native, setNative] = useState(false);
@@ -26,6 +26,7 @@ export function AuthEntry({ mode }: { mode: Mode }) {
 
   return mode === "sign-in" ? (
     <SignIn
+      appearance={clerkAppearance}
       routing="path"
       path="/sign-in"
       signUpUrl="/sign-up"
@@ -34,6 +35,7 @@ export function AuthEntry({ mode }: { mode: Mode }) {
     />
   ) : (
     <SignUp
+      appearance={clerkAppearance}
       routing="path"
       path="/sign-up"
       signInUrl="/sign-in"
