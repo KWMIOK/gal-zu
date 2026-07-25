@@ -2,10 +2,8 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 
 import { getOrCreateUserProfile, markLessonCompleted } from "@/lib/db/index";
-import { prefetchNextPendingLesson } from "@/lib/generation/lazy";
 import { generateQuizHint } from "@/lib/gemini";
 
 export async function completeLessonAction(
@@ -20,14 +18,16 @@ export async function completeLessonAction(
   revalidatePath(`/courses/${courseId}/lessons/${lessonId}`);
   revalidatePath("/dashboard");
 
-  // Warm up whatever's next while the learner is looking at the "lesson
-  // complete" screen deciding whether to continue — see lib/generation/lazy.ts.
-  // Deliberately NOT also triggered on lesson-page mount: revisiting a ready
-  // lesson must be free; only finishing one should spend a Gemini call on
-  // the next pending lesson.
-  after(() => prefetchNextPendingLesson(courseId));
+  // No background Gemini warm-up here. Finishing a lesson is a free DB write;
+  // the next pending lesson is only generated when the learner opens it
+  // (see user-spend consent rules in AGENTS.md).
 }
 
+/**
+ * Opt-in Gemini spend — must only be called after the learner explicitly
+ * clicks a labeled "uses AI" control in the quiz UI. Never fire this from
+ * automatic wrong-answer handlers.
+ */
 export async function fetchQuizHintAction(
   questionPrompt: string,
   selectedChoice: string,

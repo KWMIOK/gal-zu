@@ -32,12 +32,10 @@ export function LessonRenderer({
 }) {
   const [pending, startTransition] = useTransition();
 
-  // Intentionally no mount-time prefetch. Reopening a ready lesson used to
-  // fire `prefetchNextLessonAction` here, which quietly spent a Gemini call
-  // generating the *next* pending lesson every time the learner just
-  // revisited content they already had. Warm-up still happens once, when
-  // they actually finish a lesson (`completeLessonAction` → after()
-  // prefetch). Opening a still-pending lesson generates that one on demand.
+  // No mount-time or complete-time prefetch. Ready lessons are free DB
+  // reads; pending lessons generate only when opened. Any other Gemini
+  // spend (e.g. quiz AI hints) must be an explicit labeled opt-in — see
+  // AGENTS.md "User-facing AI spend".
 
   function markComplete() {
     startTransition(async () => {

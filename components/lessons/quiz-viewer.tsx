@@ -22,6 +22,7 @@ export function QuizViewer({
   const [selected, setSelected] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+  const [aiHintError, setAiHintError] = useState<string | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [done, setDone] = useState(false);
   const [hintPending, startHintTransition] = useTransition();
@@ -36,17 +37,29 @@ export function QuizViewer({
     setFeedback(correct ? "correct" : "wrong");
     if (correct) setCorrectCount((s) => s + 1);
 
-    if (!correct) {
-      startHintTransition(async () => {
+    // Free path only: show the hint that shipped with the quiz payload.
+    // Never auto-call Gemini on a wrong answer — that requires an explicit
+    // opt-in click below (AGENTS.md user-spend consent rules).
+    setHint(question.hint ?? null);
+    setAiHintError(null);
+  }
+
+  function requestAiHint() {
+    if (selected === null || hintPending) return;
+    setAiHintError(null);
+    startHintTransition(async () => {
+      try {
         const dynamicHint = await fetchQuizHintAction(
           question.prompt,
-          question.choices[choiceIndex],
+          question.choices[selected],
         );
         setHint(dynamicHint);
-      });
-    } else if (question.hint) {
-      setHint(question.hint);
-    }
+      } catch (error) {
+        setAiHintError(
+          error instanceof Error ? error.message : "Could not fetch an AI hint.",
+        );
+      }
+    });
   }
 
   function nextQuestion() {
@@ -60,6 +73,7 @@ export function QuizViewer({
     setSelected(null);
     setFeedback(null);
     setHint(null);
+    setAiHintError(null);
   }
 
   if (done) {
@@ -94,6 +108,7 @@ export function QuizViewer({
               setSelected(null);
               setFeedback(null);
               setHint(null);
+              setAiHintError(null);
               setCorrectCount(0);
               setDone(false);
             }}
@@ -105,6 +120,9 @@ export function QuizViewer({
       </GlassCard>
     );
   }
+
+  const showAiHintButton =
+    feedback === "wrong" && selected !== null && !hintPending;
 
   return (
     <GlassCard className="space-y-5 p-6">
@@ -144,17 +162,38 @@ export function QuizViewer({
         })}
       </div>
 
-      {hintPending ? (
-        <p className="inline-flex items-center gap-2 text-sm text-violet-600">
-          <Loader2 className="h-4 w-4 animate-spin" /> Fetching a hint…
-        </p>
-      ) : null}
-
       {hint ? (
         <p className="flex items-start gap-2 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-900 dark:bg-violet-950/40 dark:text-violet-100">
           <HelpCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {hint}
         </p>
+      ) : null}
+
+      {showAiHintButton ? (
+        <div className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <button
+            type="button"
+            onClick={requestAiHint}
+            className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-amber-900 hover:underline dark:text-amber-100"
+          >
+            <HelpCircle className="h-4 w-4" />
+            Get an AI hint
+          </button>
+          <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
+            Uses AI quota — only runs if you click. Wrong answers do not spend
+            automatically.
+          </p>
+        </div>
+      ) : null}
+
+      {hintPending ? (
+        <p className="inline-flex items-center gap-2 text-sm text-violet-600">
+          <Loader2 className="h-4 w-4 animate-spin" /> Fetching an AI hint…
+        </p>
+      ) : null}
+
+      {aiHintError ? (
+        <p className="text-sm text-red-600 dark:text-red-400">{aiHintError}</p>
       ) : null}
 
       {feedback && question.explanation ? (
