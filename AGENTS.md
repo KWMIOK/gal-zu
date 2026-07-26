@@ -326,13 +326,15 @@ entitlements) are done.
   `startNativeGoogleAuth` (`lib/capacitor/native-oauth.ts`):
   `@capgo/capacitor-social-login` opens the OS account sheet (Android
   Credential Manager bottom sheet / iOS Google Sign-In), then Clerk
-  `signIn.create({ strategy: 'google_one_tap', token })` + `setActive`.
-  Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (Google Cloud *Web* OAuth
-  client — usually the Client ID under Clerk → SSO → Google) plus an
-  Android OAuth client for `com.galzu.app` + signing SHA-1 in the same
-  Cloud project. `openAuthUrl` throws if asked to open a Google OAuth URL
-  on native. `CapacitorAuthBridge` remains only as a cold-start deep-link
-  safety net; Google no longer uses Custom Tabs.
+  `authenticateWithGoogleOneTap({ token })` + `setActive` (do **not** use
+  `signIn.create({ strategy: 'google_one_tap' })` — that returns
+  `authorization_invalid` / "not authorized" for many existing accounts).
+  Clerk → SSO → Google must use **custom** credentials whose Web Client ID
+  matches `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` exactly (token `aud`). Requires
+  that Web client plus an Android OAuth client for `com.galzu.app` + signing
+  SHA-1 in the same Cloud project. `openAuthUrl` throws if asked to open a
+  Google OAuth URL on native. `CapacitorAuthBridge` remains only as a
+  cold-start deep-link safety net; Google no longer uses Custom Tabs.
 
 ## Where things live
 

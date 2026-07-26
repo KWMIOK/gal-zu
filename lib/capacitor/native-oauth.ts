@@ -2,7 +2,7 @@
 
 import { Capacitor } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
-import type { SetActive, SignInResource, SignUpResource } from "@clerk/shared/types";
+import type { useClerk } from "@clerk/nextjs";
 
 import { isNativePlatform } from "@/lib/capacitor/is-native";
 
@@ -18,10 +18,13 @@ export function isNativeOAuthInFlight(): boolean {
   return false;
 }
 
+type ClerkClient = ReturnType<typeof useClerk>;
+
 export type StartNativeGoogleAuthParams = {
-  signIn: SignInResource;
-  signUp: SignUpResource;
-  setActive: SetActive;
+  clerk: ClerkClient;
+  /** Where to send the user after a completed session (app-owned navigation). */
+  afterSignInUrl: string;
+  afterSignUpUrl: string;
 };
 
 let googleInitialized = false;
@@ -32,7 +35,7 @@ function getGoogleWebClientId(): string {
     throw new Error(
       "Missing NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID. Use the Google Cloud " +
         "*Web application* OAuth client ID (same project as your Android/iOS " +
-        "clients — usually the Client ID shown under Clerk → SSO → Google).",
+        "clients — must match Clerk → SSO → Google custom credentials).",
     );
   }
   return id;
@@ -56,6 +59,42 @@ function isUserCancellation(err: unknown): boolean {
   );
 }
 
+function clerkErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") {
+    return err instanceof Error ? err.message : "Google sign-in failed.";
+  }
+
+  const errors =
+    "errors" in err && Array.isArray(err.errors) ? err.errors : null;
+  const first = errors?.[0] as
+    | { longMessage?: string; message?: string; code?: string }
+    | undefined;
+  const raw =
+    first?.longMessage ||
+    first?.message ||
+    ("message" in err && typeof err.message === "string" ? err.message : null) ||
+    "Google sign-in failed.";
+
+  const code = first?.code ?? "";
+  if (
+    code === "authorization_invalid" ||
+    /not authorized to perform this request/i.test(raw)
+  ) {
+    return (
+      `${raw} Check Clerk Dashboard → SSO → Google: use *custom* credentials ` +
+      `whose Web Client ID exactly matches NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID ` +
+      `(the same Web OAuth client Capgo uses for the ID token).`
+    );
+  }
+  if (code === "google_one_tap_token_invalid") {
+    return (
+      `${raw} The Google ID token audience must be your Web Client ID, and ` +
+      `that same ID must be configured in Clerk's Google SSO custom credentials.`
+    );
+  }
+  return raw;
+}
+
 async function ensureGoogleInitialized(): Promise<void> {
   if (googleInitialized) return;
 
@@ -65,8 +104,6 @@ async function ensureGoogleInitialized(): Promise<void> {
   await SocialLogin.initialize({
     google: {
       webClientId,
-      // iOS Google Sign-In SDK client; server client must be the Web client ID
-      // so the ID token `aud` matches what Clerk verifies.
       ...(iOSClientId ? { iOSClientId } : {}),
       iOSServerClientId: webClientId,
       mode: "online",
@@ -79,22 +116,23 @@ async function ensureGoogleInitialized(): Promise<void> {
 /**
  * Fully browser-free Google sign-in for Capacitor.
  *
- * 1. Android Credential Manager / iOS Google Sign-In presents a system account
- *    sheet (bottom sheet / native popup) — never Custom Tabs or Chrome
- * 2. Exchange the Google ID token with Clerk via `google_one_tap`
- * 3. Activate the resulting session
- *
- * Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (Web OAuth client) plus a matching
- * Android OAuth client (package `com.galzu.app` + signing SHA-1) in the same
- * Google Cloud project. Clerk must have Google enabled as an SSO connection.
+ * 1. OS account sheet via Capgo SocialLogin (never Chrome)
+ * 2. Exchange ID token with Clerk via `authenticateWithGoogleOneTap`
+ *    (not `signIn.create({ strategy: "google_one_tap" })` — that path returns
+ *    authorization_invalid for many existing accounts)
+ * 3. Activate the session / finish any remaining One Tap callback steps
  */
 export async function startNativeGoogleAuth({
-  signIn,
-  signUp,
-  setActive,
+  clerk,
+  afterSignInUrl,
+  afterSignUpUrl,
 }: StartNativeGoogleAuthParams): Promise<{ createdSessionId: string | null }> {
   if (!isNativePlatform()) {
     throw new Error("startNativeGoogleAuth is only for the Capacitor shell.");
+  }
+
+  if (!clerk.authenticateWithGoogleOneTap || !clerk.setActive) {
+    throw new Error("Clerk is not ready for Google One Tap authentication.");
   }
 
   await ensureGoogleInitialized();
@@ -104,13 +142,10 @@ export async function startNativeGoogleAuth({
     const result = await SocialLogin.login({
       provider: "google",
       options: {
-        // Android: system account bottom sheet (the in-app "popup").
         style: Capacitor.getPlatform() === "android" ? "bottom" : "standard",
         filterByAuthorizedAccounts: false,
         forcePrompt: true,
-        // Do NOT pass `scopes` here. Capgo rejects custom scopes unless
-        // MainActivity implements ModifiedMainActivityForSocialLoginPlugin.
-        // Default email/profile/openid scopes are already requested by the plugin.
+        // Do NOT pass `scopes` — Capgo requires a modified MainActivity for that.
       },
     });
 
@@ -130,23 +165,35 @@ export async function startNativeGoogleAuth({
     throw err;
   }
 
-  await signIn.create({
-    strategy: "google_one_tap",
-    token: idToken,
-  });
+  try {
+    const signInOrUp = await clerk.authenticateWithGoogleOneTap({
+      token: idToken,
+    });
 
-  if (signIn.firstFactorVerification.status === "transferable") {
-    await signUp.create({ transfer: true });
+    if (signInOrUp.status === "complete" && signInOrUp.createdSessionId) {
+      await clerk.setActive({ session: signInOrUp.createdSessionId });
+      return { createdSessionId: signInOrUp.createdSessionId };
+    }
+
+    // Incomplete flows (e.g. missing fields) — let Clerk finish + navigate.
+    if (clerk.handleGoogleOneTapCallback) {
+      await clerk.handleGoogleOneTapCallback(signInOrUp, {
+        signInForceRedirectUrl: afterSignInUrl,
+        signUpForceRedirectUrl: afterSignUpUrl,
+        signInFallbackRedirectUrl: afterSignInUrl,
+        signUpFallbackRedirectUrl: afterSignUpUrl,
+      });
+      return {
+        createdSessionId: signInOrUp.createdSessionId ?? null,
+      };
+    }
+
+    throw new Error(
+      "Google sign-in did not complete. Try again or finish any required steps.",
+    );
+  } catch (err) {
+    throw new Error(clerkErrorMessage(err));
   }
-
-  const createdSessionId =
-    signUp.createdSessionId ?? signIn.createdSessionId ?? null;
-
-  if (createdSessionId) {
-    await setActive({ session: createdSessionId });
-  }
-
-  return { createdSessionId };
 }
 
 /** @deprecated Use `startNativeGoogleAuth` — kept as an alias for call sites. */

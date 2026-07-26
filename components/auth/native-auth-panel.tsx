@@ -1,7 +1,6 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
-import { useSignIn, useSignUp } from "@clerk/nextjs/legacy";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -21,27 +20,26 @@ type NativeAuthPanelProps = {
  */
 export function NativeAuthPanel({ mode }: NativeAuthPanelProps) {
   const router = useRouter();
-  const { setActive } = useClerk();
-  const { isLoaded: signInLoaded, signIn } = useSignIn();
-  const { isLoaded: signUpLoaded, signUp } = useSignUp();
+  const clerk = useClerk();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = signInLoaded && signUpLoaded && !!signIn && !!signUp && !!setActive;
+  const ready = clerk.loaded;
   const isSignIn = mode === "sign-in";
+  const afterSignInUrl = "/dashboard";
+  const afterSignUpUrl = "/onboarding";
 
   async function onGoogle() {
-    if (!signIn || !signUp || !setActive) return;
     setBusy(true);
     setError(null);
     try {
       const { createdSessionId } = await startNativeGoogleAuth({
-        signIn,
-        signUp,
-        setActive,
+        clerk,
+        afterSignInUrl,
+        afterSignUpUrl,
       });
       if (!createdSessionId) return;
-      router.replace(isSignIn ? "/dashboard" : "/onboarding");
+      router.replace(isSignIn ? afterSignInUrl : afterSignUpUrl);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Google sign-in failed. Try again.",
