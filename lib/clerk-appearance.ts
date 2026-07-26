@@ -22,11 +22,19 @@ const sharedFonts = {
 /**
  * Shared structural classes — Tailwind `dark:` follows system preference
  * (Tailwind v4 media strategy) so elements stay correct even before JS runs.
+ *
+ * Border/radius live on `cardBox` (not `card`) so `.cl-card` and `.cl-footer`
+ * share one aligned shell — Clerk renders the footer as a sibling of the card.
  */
 const sharedElements = {
   rootBox: "w-full",
-  cardBox: "w-full shadow-none",
-  card: "w-full border border-zinc-200 bg-white shadow-sm rounded-2xl dark:border-zinc-800 dark:bg-zinc-900",
+  cardBox:
+    "w-full overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900",
+  card: "w-full rounded-none border-0 bg-transparent shadow-none",
+  footer:
+    "w-full !m-0 rounded-none border-x-0 border-b-0 border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/60",
+  footerAction: "w-full",
+  footerActionText: "text-zinc-500 dark:text-zinc-400",
   headerTitle:
     "text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50",
   headerSubtitle: "text-sm text-zinc-500 dark:text-zinc-400",
