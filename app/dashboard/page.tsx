@@ -1,7 +1,4 @@
 import { auth } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import {
   CourseGrid,
@@ -13,32 +10,38 @@ import {
   computeCourseProgress,
   getActiveLessonId,
 } from "@/lib/course-progress";
-import { getUserProfile, listCoursesForUser, listLessonsForCourse } from "@/lib/db/index";
+import {
+  getActorContext,
+  getUserProfile,
+  listCoursesForUser,
+  listLessonsForCourse,
+} from "@/lib/db/index";
 import { getQuotaSummary, type QuotaSummary } from "@/lib/generation/quota";
 import { getClerkSupabaseAccessToken } from "@/lib/supabase/clerk-token";
 import { profilePreferenceSummary } from "@/lib/user-profile-normalize";
 
-// `createCourseFromPrompt` (via OmniPromptBar) itself does no Gemini calls
-// anymore — classification + lesson 1 now happen lazily on the course page
-// (see app/courses/[courseId]/page.tsx, lib/generation/lazy.ts) instead of
-// blocking this Server Action, so this page no longer needs a raised
-// duration for that. Kept anyway as a cheap safety margin for whatever else
-// might run slow here.
 export const maxDuration = 300;
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const { userId: clerkUserId } = await auth();
+  const actor = await getActorContext();
 
-  const supabaseTokenReady = Boolean(await getClerkSupabaseAccessToken());
+  const supabaseTokenReady = actor.isGuest
+    ? true
+    : Boolean(await getClerkSupabaseAccessToken());
 
-  const profile = supabaseTokenReady ? await getUserProfile(userId) : null;
-  const activePreferenceTags = profilePreferenceSummary(profile);
-  const quota: QuotaSummary | null = profile
-    ? await getQuotaSummary(profile)
-    : null;
+  const profile =
+    supabaseTokenReady ? await getUserProfile(actor.userId) : null;
+  const activePreferenceTags = clerkUserId
+    ? profilePreferenceSummary(profile)
+    : [];
+  const quota: QuotaSummary | null =
+    profile && !actor.isGuest ? await getQuotaSummary(profile) : null;
+  const canUsePaidDepths = profile?.plan_tier === "pro";
 
-  const courses = await listCoursesForUser(userId);
+  const courses = supabaseTokenReady
+    ? await listCoursesForUser(actor.userId)
+    : [];
 
   const coursesWithProgress: CourseWithProgress[] = await Promise.all(
     courses.map(async (course) => {
@@ -61,25 +64,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-violet-600 dark:text-violet-400">
-            Gal-zu
+      <header>
+        <p className="text-sm font-medium text-violet-600 dark:text-violet-400">
+          Gal-zu
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {actor.isGuest ? "Start learning" : "Dashboard"}
+        </h1>
+        {actor.isGuest ? (
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Try Quick answer or Overview free — no account required. Sign up
+            anytime to save preferences.
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/onboarding"
-            className="text-sm text-zinc-600 hover:text-violet-600 dark:text-zinc-400"
-          >
-            Preferences
-          </Link>
-          <UserButton />
-        </div>
+        ) : null}
       </header>
 
-      {!supabaseTokenReady ? <SupabaseSetupBanner /> : null}
+      {!supabaseTokenReady && !actor.isGuest ? <SupabaseSetupBanner /> : null}
 
       {activePreferenceTags.length > 0 ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -90,10 +90,15 @@ export default async function DashboardPage() {
         </p>
       ) : null}
 
-      <OmniPromptBar initialQuota={quota} />
+      <OmniPromptBar
+        initialQuota={quota}
+        canUsePaidDepths={canUsePaidDepths}
+      />
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Active courses</h2>
+        <h2 className="text-lg font-semibold">
+          {actor.isGuest ? "Your sessions" : "Active courses"}
+        </h2>
         <CourseGrid courses={activeCourses} />
       </section>
 

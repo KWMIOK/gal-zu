@@ -1,10 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { LessonBlockedView } from "@/components/lessons/lesson-blocked-view";
 import { LessonRenderer } from "@/components/lessons/lesson-renderer";
 import { getNextLessonId } from "@/lib/course-progress";
-import { getCourseById, listLessonsForCourse } from "@/lib/db/index";
+import { getActorContext, getCourseById, listLessonsForCourse } from "@/lib/db/index";
 import { CreateCourseFromPromptError } from "@/lib/generation/create-course";
 import { ensureLessonGenerated } from "@/lib/generation/lazy";
 import { stripCapReachedPrefix } from "@/lib/generation/quota-shared";
@@ -21,12 +20,11 @@ export default async function LessonPage({
 }: {
   params: Promise<{ courseId: string; lessonId: string }>;
 }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const actor = await getActorContext();
 
   const { courseId, lessonId } = await params;
   const course = await getCourseById(courseId);
-  if (!course || course.user_id !== userId) notFound();
+  if (!course || course.user_id !== actor.userId) notFound();
 
   const lessons = await listLessonsForCourse(courseId);
   const lesson = lessons.find((l) => l.id === lessonId);

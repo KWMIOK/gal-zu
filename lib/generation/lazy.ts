@@ -1,8 +1,14 @@
 import "server-only";
 
 import {
+  canAccessPromptDepth,
+  DEPTH_LOCKED_MESSAGE_PREFIX,
+  PAID_DEPTH_LOCK_COPY,
+} from "@/lib/billing/depth-access";
+import {
   createLesson,
   fetchTrustedRagContext,
+  getActorContext,
   getCourseById,
   getLessonById,
   getOrCreateUserProfile,
@@ -57,7 +63,11 @@ export async function generateContentForPlan(
   plan: LessonGenerationPlan,
   format: LessonFormat,
 ): Promise<LessonContentPayload> {
-  await assertWithinDailyQuota(profile);
+  const actor = await getActorContext();
+  // Guests: unlimited free-depth lessons. Signed-in: daily Gemini-call cap.
+  if (!actor.isGuest) {
+    await assertWithinDailyQuota(profile);
+  }
 
   const rag = await fetchTrustedRagContext(plan.topic);
   const ragContext =
@@ -193,12 +203,24 @@ async function runCourseClassification(courseId: string): Promise<Course> {
 
   try {
     const profile = await getOrCreateUserProfile();
+    const actor = await getActorContext();
+    const depth = (claimed.depth as PromptDepth | null) ?? "quick_answer";
+    const planKey = actor.isGuest ? "guest" : profile.plan_tier;
+    if (!canAccessPromptDepth(planKey, depth)) {
+      return updateCourse(courseId, {
+        status: "failed",
+        generation_error: `${DEPTH_LOCKED_MESSAGE_PREFIX} ${PAID_DEPTH_LOCK_COPY}`,
+      });
+    }
+
     const generationContext: GeminiGenerationContext = {
       depth: (claimed.depth as PromptDepth | null) ?? undefined,
       sessionLength: (claimed.session_length as PromptSessionLength | null) ?? undefined,
     };
 
-    await assertWithinDailyQuota(profile);
+    if (!actor.isGuest) {
+      await assertWithinDailyQuota(profile);
+    }
     const classification = await classifyAndBuildRoadmap(
       claimed.topic,
       profile,

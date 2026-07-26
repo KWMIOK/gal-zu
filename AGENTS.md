@@ -305,7 +305,16 @@ entitlements) are done.
 - **Per-call quota accounting**, not per-course (`lib/generation/quota.ts`)
   — every individual Gemini call (classification, each lesson) checks
   the daily cap itself, since a course's lessons can now be generated
-  well after the course-creation request returns.
+  well after the course-creation request returns. **Guests skip the
+  daily cap** for free depths only.
+- **Freemium guest access.** Unauthenticated learners get a
+  `galzu_guest_id` cookie (middleware) and use Quick answer / Overview
+  with default prefs via service-role DB writes (`getActorContext` in
+  `lib/db/index.ts`). Deep Dive / Complete Mastery stay visible but
+  locked (`lib/billing/depth-access.ts`) — UI modal + server
+  `DEPTH_LOCKED` reject; signup alone does **not** unlock them (Pro
+  `plan_tier` does). Header always shows Sign Up (guest) or
+  UserButton + Preferences (signed-in).
 - **Capacitor Google is fully browser-free.** Stock Clerk `<SignIn />` /
   modal buttons navigate the WebView to Google; Android ejects that to
   Chrome. Native uses `startNativeGoogleAuth`

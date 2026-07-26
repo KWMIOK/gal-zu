@@ -23,11 +23,12 @@ export const PLAN_TIERS: Record<PlanTier, PlanTierCopy> = {
     name: "Free",
     priceLabel: "$0",
     dailyLessonLimit: dailyGenerationLimitForPlan("free"),
-    tagline: "Enough to try Gal-zu properly every day.",
+    tagline: "Quick answer & Overview — try Gal-zu without a card.",
     features: [
-      `${dailyGenerationLimitForPlan("free")} lesson generations per day`,
+      "Unlimited Quick answer & Overview while browsing as a guest",
+      `${dailyGenerationLimitForPlan("free")} signed-in generations per day`,
       "Full slide decks with narration, animations & practice widgets",
-      "All course depths, from quick answer to complete mastery",
+      "Deep Dive & Complete Mastery require Pro (not unlocked by signup)",
     ],
   },
   pro: {
@@ -35,9 +36,10 @@ export const PLAN_TIERS: Record<PlanTier, PlanTierCopy> = {
     name: "Gal-zu Pro",
     priceLabel: "$7.99/mo",
     dailyLessonLimit: dailyGenerationLimitForPlan("pro"),
-    tagline: "For daily learners who outgrow the free cap.",
+    tagline: "Full depth tiers plus a much higher daily generation budget.",
     features: [
       `${dailyGenerationLimitForPlan("pro")} lesson generations per day`,
+      "Deep Dive and Complete Mastery courses",
       "Priority access to new lesson formats",
       "Support indie development of Gal-zu",
     ],

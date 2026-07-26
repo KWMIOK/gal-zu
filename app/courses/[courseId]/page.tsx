@@ -1,6 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { CourseStatusView } from "@/components/courses/course-status-view";
@@ -9,7 +8,7 @@ import { RoadmapTimeline } from "@/components/courses/roadmap-timeline";
 import { GlassCard } from "@/components/ui/glass-card";
 import { getActiveLessonId, computeCourseProgress } from "@/lib/course-progress";
 import { flatModuleLabels } from "@/lib/course-roadmap";
-import { getCourseById, listLessonsForCourse } from "@/lib/db/index";
+import { getActorContext, getCourseById, listLessonsForCourse } from "@/lib/db/index";
 import { ensureCourseClassified } from "@/lib/generation/lazy";
 import { isCapReachedMessage, stripCapReachedPrefix } from "@/lib/generation/quota-shared";
 
@@ -25,12 +24,11 @@ export default async function CoursePage({
 }: {
   params: Promise<{ courseId: string }>;
 }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const actor = await getActorContext();
 
   const { courseId } = await params;
   let course = await getCourseById(courseId);
-  if (!course || course.user_id !== userId) notFound();
+  if (!course || course.user_id !== actor.userId) notFound();
 
   if (course.status !== "ready") {
     course = await ensureCourseClassified(courseId);

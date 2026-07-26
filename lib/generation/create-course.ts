@@ -36,7 +36,8 @@ export type CreateCourseFromPromptErrorCode =
   | "UNAUTHORIZED"
   | "INVALID_INPUT"
   | "GENERATION_FAILED"
-  | "CAP_REACHED";
+  | "CAP_REACHED"
+  | "DEPTH_LOCKED";
 
 export class CreateCourseFromPromptError extends Error {
   constructor(

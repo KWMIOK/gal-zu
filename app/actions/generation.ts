@@ -3,11 +3,22 @@
 import { auth } from "@clerk/nextjs/server";
 import { after } from "next/server";
 
-import { createCourse, getOrCreateUserProfile, updateUserProfile } from "@/lib/db/index";
+import {
+  DEPTH_LOCKED_MESSAGE_PREFIX,
+  PAID_DEPTH_LOCK_COPY,
+  canAccessPromptDepth,
+} from "@/lib/billing/depth-access";
+import {
+  createCourse,
+  getActorContext,
+  getOrCreateUserProfile,
+  updateUserProfile,
+} from "@/lib/db/index";
 import {
   CreateCourseFromPromptError,
   type CreateCourseFromPromptOptions,
   type CreateCourseFromPromptResult,
+  type PromptDepth,
 } from "@/lib/generation/create-course";
 import { ensureCourseClassified } from "@/lib/generation/lazy";
 import { sanitizeLearnerTopic } from "@/lib/generation/prompt";
@@ -16,32 +27,28 @@ import { assertWithinDailyQuota } from "@/lib/generation/quota";
 /**
  * Deliberately does no Gemini calls at all — just auth/input validation, an
  * up-front quota check (cheap DB read), and one fast insert. Classification
- * + lesson 1 generation (the actual slow, retry-with-backoff work — see
- * `ensureCourseClassified` in lib/generation/lazy.ts) used to run
- * synchronously right here, inside this same Server Action call, with
- * nothing bounding it below Vercel's own ~300s function-duration ceiling.
- * The heaviest depth tier (complete_mastery + multi_week — the largest
- * roadmap JSON, most likely to need every retry) could genuinely exceed
- * that, and a platform-killed invocation surfaces to the client as the
- * generic, undebuggable "An error occurred in the Server Components
- * render" — with the course never even created, a total dead end.
+ * + lesson 1 generation run lazily on the course page (see
+ * `ensureCourseClassified` in lib/generation/lazy.ts).
  *
- * Now that work happens lazily the moment the course page opens (the exact
- * same pattern lesson 2+ already used), with a warm-start kicked off here
- * via `after()` so it's often already done by the time the redirect lands.
- * If it's ever still slow, the course page just shows a loading state —
- * recoverable, not a crash — and if it genuinely fails, the real error
- * lands in `courses.generation_error` instead of being swallowed.
+ * Guests (cookie identity) may create Quick answer / Overview courses with
+ * default prefs and no daily cap. Deep Dive / Complete Mastery require Pro
+ * and are rejected here even if the UI is bypassed.
  */
 export async function createCourseFromPrompt(
   userPrompt: string,
   options?: CreateCourseFromPromptOptions,
 ): Promise<CreateCourseFromPromptResult> {
-  const { userId } = await auth();
-  if (!userId) {
+  const actor = await getActorContext();
+  const depth: PromptDepth = options?.depth ?? "quick_answer";
+
+  const planKey = actor.isGuest
+    ? ("guest" as const)
+    : (await getOrCreateUserProfile()).plan_tier;
+
+  if (!canAccessPromptDepth(planKey, depth)) {
     throw new CreateCourseFromPromptError(
-      "You must be signed in to create a course.",
-      "UNAUTHORIZED",
+      `${DEPTH_LOCKED_MESSAGE_PREFIX} ${PAID_DEPTH_LOCK_COPY}`,
+      "DEPTH_LOCKED",
     );
   }
 
@@ -55,26 +62,28 @@ export async function createCourseFromPrompt(
 
   let profile = await getOrCreateUserProfile();
 
-  if (options?.profilePatch && Object.keys(options.profilePatch).length > 0) {
-    profile = await updateUserProfile(userId, options.profilePatch);
+  if (
+    !actor.isGuest &&
+    options?.profilePatch &&
+    Object.keys(options.profilePatch).length > 0
+  ) {
+    const { userId } = await auth();
+    if (userId) {
+      profile = await updateUserProfile(userId, options.profilePatch);
+    }
   }
 
-  // Reject before creating anything if the caller is already out of quota
-  // for the day — see lib/generation/quota.ts. `ensureCourseClassified`
-  // re-checks this itself too right before the real classification call,
-  // since that can now happen well after this request returns.
-  await assertWithinDailyQuota(profile);
+  if (!actor.isGuest) {
+    await assertWithinDailyQuota(profile);
+  }
 
   const course = await createCourse({
-    user_id: userId,
-    // Temporary placeholders — overwritten with the real title/scope the
-    // moment classification lands (see `runCourseClassification`). Kept
-    // non-null here only because the columns themselves are NOT NULL.
+    user_id: actor.userId,
     title: cleanTopic,
     scope_type: "unit",
     status: "classifying",
     topic: cleanTopic,
-    depth: options?.depth ?? null,
+    depth,
     session_length: options?.sessionLength ?? null,
   });
 

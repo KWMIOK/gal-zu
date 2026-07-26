@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { ensureGuestId } from "@/lib/guest/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/service-role";
 import { normalizeUserProfileRow } from "@/lib/user-profile-normalize";
@@ -32,17 +34,36 @@ export class DbError extends Error {
   }
 }
 
-async function getAuthedSupabase(): Promise<{
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+export type ActorContext = {
+  supabase: SupabaseClient;
   userId: string;
-}> {
+  /** True when acting via guest cookie + service role (no Clerk session). */
+  isGuest: boolean;
+};
+
+/**
+ * Resolves the acting learner: Clerk user (RLS JWT) or anonymous guest
+ * (cookie id + service-role client). Guest writes bypass RLS intentionally;
+ * every mutator still checks `course.user_id === userId`.
+ */
+async function getAuthedSupabase(): Promise<ActorContext> {
   const { userId } = await auth();
-  if (!userId) {
-    throw new DbError("Unauthorized");
+  if (userId) {
+    const supabase = await createSupabaseServerClient();
+    return { supabase, userId, isGuest: false };
   }
 
-  const supabase = await createSupabaseServerClient();
-  return { supabase, userId };
+  const guestId = await ensureGuestId();
+  return {
+    supabase: createSupabaseServiceRoleClient(),
+    userId: guestId,
+    isGuest: true,
+  };
+}
+
+/** Same as getAuthedSupabase — exported for pages that need guest vs signed-in. */
+export async function getActorContext(): Promise<ActorContext> {
+  return getAuthedSupabase();
 }
 
 function throwOnError<T>(
@@ -58,7 +79,11 @@ function throwOnError<T>(
 export async function getUserProfile(
   userId: string,
 ): Promise<UserProfile | null> {
-  const supabase = await createSupabaseServerClient();
+  // Prefer actor client so guests (service role) can read their own row.
+  const { supabase, userId: actorId } = await getAuthedSupabase();
+  if (actorId !== userId) {
+    throw new DbError("Cannot read another user's profile.");
+  }
 
   const { data, error } = await supabase
     .from("user_profiles")
@@ -133,7 +158,10 @@ export async function updateUserProfile(
 }
 
 export async function listCoursesForUser(userId: string): Promise<Course[]> {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, userId: actorId } = await getAuthedSupabase();
+  if (actorId !== userId) {
+    throw new DbError("Cannot list another user's courses.");
+  }
 
   const { data, error } = await supabase
     .from("courses")
@@ -149,7 +177,7 @@ export async function listCoursesForUser(userId: string): Promise<Course[]> {
 }
 
 export async function getCourseById(courseId: string): Promise<Course | null> {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, userId } = await getAuthedSupabase();
 
   const { data, error } = await supabase
     .from("courses")
@@ -161,7 +189,11 @@ export async function getCourseById(courseId: string): Promise<Course | null> {
     throw new DbError(`getCourseById: ${error.message}`, error);
   }
 
-  return data as Course | null;
+  if (!data) return null;
+  // Service-role guest path can see any row — enforce ownership in app code.
+  if ((data as Course).user_id !== userId) return null;
+
+  return data as Course;
 }
 
 export async function createCourse(input: CourseInsert): Promise<Course> {
@@ -267,7 +299,11 @@ export async function tryClaimCourseForClassification(
 export async function listLessonsForCourse(
   courseId: string,
 ): Promise<Lesson[]> {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, userId } = await getAuthedSupabase();
+  const course = await getCourseById(courseId);
+  if (!course || course.user_id !== userId) {
+    throw new DbError("Course not found or access denied.");
+  }
 
   const { data, error } = await supabase
     .from("lessons")
@@ -283,7 +319,7 @@ export async function listLessonsForCourse(
 }
 
 export async function getLessonById(lessonId: string): Promise<Lesson | null> {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, userId } = await getAuthedSupabase();
 
   const { data, error } = await supabase
     .from("lessons")
@@ -295,7 +331,12 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
     throw new DbError(`getLessonById: ${error.message}`, error);
   }
 
-  return data as Lesson | null;
+  if (!data) return null;
+
+  const course = await getCourseById((data as Lesson).course_id);
+  if (!course || course.user_id !== userId) return null;
+
+  return data as Lesson;
 }
 
 export async function createLesson(input: LessonInsert): Promise<Lesson> {
@@ -483,7 +524,10 @@ export async function countGenerationEventsSince(
   userId: string,
   sinceIso: string,
 ): Promise<number> {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, userId: actorId } = await getAuthedSupabase();
+  if (actorId !== userId) {
+    throw new DbError("Cannot read another user's generation events.");
+  }
 
   const { count, error } = await supabase
     .from("generation_events")

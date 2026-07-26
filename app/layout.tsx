@@ -1,8 +1,8 @@
-import { ClerkProvider, Show } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
 
+import { AppHeader } from "@/components/layout/app-header";
 import { CapacitorAuthBridge } from "@/components/mobile/capacitor-auth-bridge";
 import { RevenueCatInitializer } from "@/components/mobile/revenuecat-initializer";
 import { clerkAppearance } from "@/lib/clerk-appearance";
@@ -25,8 +25,6 @@ export const metadata: Metadata = {
     "AI-powered adaptive learning with personalized roadmaps, slide decks, and just-in-time lessons.",
 };
 
-// Prevents pinch-zoom/rubber-band scrolling quirks inside the Capacitor
-// WebView shell while remaining a normal responsive viewport on the web.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -49,24 +47,7 @@ export default async function RootLayout({
         <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
           <CapacitorAuthBridge />
           <RevenueCatInitializer />
-          {/* Signed-in only: signed-out users land on auth with no header CTAs. */}
-          <Show when="signed-in">
-            <header className="border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-              <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-                <Link href="/dashboard" className="text-sm font-semibold tracking-tight">
-                  Gal-zu
-                </Link>
-                <nav className="flex items-center gap-3 text-sm">
-                  <Link
-                    href="/dashboard"
-                    className="rounded-lg px-3 py-1.5 font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/40"
-                  >
-                    Dashboard
-                  </Link>
-                </nav>
-              </div>
-            </header>
-          </Show>
+          <AppHeader />
           {children}
         </body>
       </html>
