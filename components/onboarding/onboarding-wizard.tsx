@@ -38,7 +38,28 @@ function snapshotKey(input: {
   preferredLanguage: PreferredLanguage;
   fontStyle: FontStyle;
 }): string {
-  return JSON.stringify(input);
+  // Only UI-controlled fields — ignores optional accommodation sub-flags so
+  // toggle-on then toggle-off returns dirty to false reliably.
+  return JSON.stringify({
+    styles: {
+      visual: Boolean(input.learningStyles.visual),
+      auditory: Boolean(input.learningStyles.auditory),
+      hands_on: Boolean(input.learningStyles.hands_on),
+      reading_writing: Boolean(input.learningStyles.reading_writing),
+      preferred_pace: input.learningStyles.preferred_pace ?? "moderate",
+    },
+    access: {
+      adhd: Boolean(input.accommodations.adhd.enabled),
+      dyscalculia: Boolean(input.accommodations.dyscalculia.enabled),
+      math_anxiety: Boolean(input.accommodations.math_anxiety.enabled),
+      dyslexia: Boolean(input.accommodations.dyslexia.enabled),
+      dysgraphia: Boolean(input.accommodations.dysgraphia.enabled),
+      nvld: Boolean(input.accommodations.nvld.enabled),
+      apd: Boolean(input.accommodations.apd.enabled),
+    },
+    preferredLanguage: input.preferredLanguage,
+    fontStyle: input.fontStyle,
+  });
 }
 
 export function OnboardingWizard({
@@ -239,11 +260,6 @@ export function OnboardingWizard({
           {t("prefs.title")}
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">{t("prefs.subtitle")}</p>
-        {mode === "settings" && dirty ? (
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-            {t("prefs.saveHint")}
-          </p>
-        ) : null}
       </div>
 
       <GlassCard className="space-y-6 p-6">
@@ -463,12 +479,7 @@ export function OnboardingWizard({
             {pending ? t("prefs.saving") : t("prefs.continue")}
             <ArrowRight className="h-4 w-4" />
           </button>
-        ) : (
-          <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-            {t("prefs.saveHint")}
-          </p>
-        )}
-      </GlassCard>
+        ) : null}      </GlassCard>
     </div>
   );
 }
