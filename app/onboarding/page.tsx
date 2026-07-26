@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { ChromeCookieSync } from "@/components/preferences/chrome-cookie-sync";
 import { getUserProfile, getOrCreateUserProfile } from "@/lib/db/index";
 import { normalizeUserProfileRow } from "@/lib/user-profile-normalize";
 
@@ -23,12 +24,18 @@ export default async function OnboardingPage() {
   } = normalizeUserProfileRow(profile);
 
   return (
-    <OnboardingWizard
-      mode="settings"
-      initialLearningStyles={learning_styles}
-      initialAccommodations={neurodivergent_accommodations}
-      initialPreferredLanguage={preferred_language}
-      initialFontStyle={font_style}
-    />
+    <>
+      <ChromeCookieSync
+        language={preferred_language}
+        fontStyle={font_style}
+      />
+      <OnboardingWizard
+        mode="settings"
+        initialLearningStyles={learning_styles}
+        initialAccommodations={neurodivergent_accommodations}
+        initialPreferredLanguage={preferred_language}
+        initialFontStyle={font_style}
+      />
+    </>
   );
 }

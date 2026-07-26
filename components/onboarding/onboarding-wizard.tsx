@@ -1,11 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { ArrowRight, Calculator, CheckCircle2 } from "lucide-react";
 
 import { saveOnboardingPreferences } from "@/app/actions/onboarding";
-import { useT } from "@/components/preferences/learner-prefs-provider";
+import {
+  useLearnerPrefs,
+  useT,
+} from "@/components/preferences/learner-prefs-provider";
+import { useRegisterPreferencesEditor } from "@/components/preferences/preferences-edit-context";
 import {
   AnimatedMultiSelect,
   AnimatedSelect,
@@ -28,6 +32,15 @@ import {
 
 type StyleKey = Exclude<keyof LearningStyles, "preferred_pace">;
 
+function snapshotKey(input: {
+  learningStyles: LearningStyles;
+  accommodations: NeurodivergentAccommodations;
+  preferredLanguage: PreferredLanguage;
+  fontStyle: FontStyle;
+}): string {
+  return JSON.stringify(input);
+}
+
 export function OnboardingWizard({
   mode = "onboarding",
   initialLearningStyles,
@@ -43,7 +56,9 @@ export function OnboardingWizard({
 }) {
   const router = useRouter();
   const t = useT();
+  const { applyChrome } = useLearnerPrefs();
   const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [learningStyles, setLearningStyles] = useState<LearningStyles>(
@@ -59,6 +74,87 @@ export function OnboardingWizard({
   const [fontStyle, setFontStyle] = useState<FontStyle>(
     initialFontStyle ?? DEFAULT_FONT_STYLE,
   );
+  const [baseline, setBaseline] = useState(() =>
+    snapshotKey({
+      learningStyles: initialLearningStyles ?? { ...DEFAULT_LEARNING_STYLES },
+      accommodations:
+        initialAccommodations ?? { ...DEFAULT_NEURODIVERGENT_ACCOMMODATIONS },
+      preferredLanguage:
+        initialPreferredLanguage ?? DEFAULT_PREFERRED_LANGUAGE,
+      fontStyle: initialFontStyle ?? DEFAULT_FONT_STYLE,
+    }),
+  );
+
+  const dirty = useMemo(
+    () =>
+      snapshotKey({
+        learningStyles,
+        accommodations,
+        preferredLanguage,
+        fontStyle,
+      }) !== baseline,
+    [learningStyles, accommodations, preferredLanguage, fontStyle, baseline],
+  );
+
+  const save = useCallback(async (): Promise<boolean> => {
+    setError(null);
+    setSaved(false);
+    setSaving(true);
+    try {
+      const result = await saveOnboardingPreferences({
+        learning_styles: learningStyles,
+        neurodivergent_accommodations: accommodations,
+        preferred_language: preferredLanguage,
+        font_style: fontStyle,
+      });
+
+      if (!result.ok) {
+        setError(result.error);
+        return false;
+      }
+
+      applyChrome(preferredLanguage, fontStyle);
+      setBaseline(
+        snapshotKey({
+          learningStyles,
+          accommodations,
+          preferredLanguage,
+          fontStyle,
+        }),
+      );
+      setSaved(true);
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    learningStyles,
+    accommodations,
+    preferredLanguage,
+    fontStyle,
+    applyChrome,
+  ]);
+
+  useRegisterPreferencesEditor({
+    dirty,
+    saving: saving || pending,
+    save,
+  });
+  useEffect(() => {
+    if (mode === "settings") {
+      router.prefetch("/dashboard");
+    }
+  }, [mode, router]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   const styleOptions: { value: StyleKey; label: string }[] = [
     { value: "visual", label: t("prefs.style.visual") },
@@ -129,29 +225,10 @@ export function OnboardingWizard({
     });
   }
 
-  function submit() {
-    setError(null);
-    setSaved(false);
-
+  function submitContinue() {
     startTransition(async () => {
-      const result = await saveOnboardingPreferences({
-        learning_styles: learningStyles,
-        neurodivergent_accommodations: accommodations,
-        preferred_language: preferredLanguage,
-        font_style: fontStyle,
-      });
-
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-
-      setSaved(true);
-      router.refresh();
-
-      if (mode === "onboarding") {
-        router.push("/dashboard");
-      }
+      const ok = await save();
+      if (ok) router.push("/dashboard");
     });
   }
 
@@ -162,6 +239,11 @@ export function OnboardingWizard({
           {t("prefs.title")}
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">{t("prefs.subtitle")}</p>
+        {mode === "settings" && dirty ? (
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            {t("prefs.saveHint")}
+          </p>
+        ) : null}
       </div>
 
       <GlassCard className="space-y-6 p-6">
@@ -364,26 +446,28 @@ export function OnboardingWizard({
           </p>
         ) : null}
 
-        {saved && mode === "settings" ? (
+        {saved && mode === "settings" && !dirty ? (
           <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
             <CheckCircle2 className="h-4 w-4" />
             {t("prefs.saved")}
           </p>
         ) : null}
 
-        <button
-          type="button"
-          disabled={pending}
-          onClick={submit}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-60"
-        >
-          {pending
-            ? t("prefs.saving")
-            : mode === "settings"
-              ? t("prefs.save")
-              : t("prefs.continue")}
-          <ArrowRight className="h-4 w-4" />
-        </button>
+        {mode === "onboarding" ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={submitContinue}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-60"
+          >
+            {pending ? t("prefs.saving") : t("prefs.continue")}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        ) : (
+          <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+            {t("prefs.saveHint")}
+          </p>
+        )}
       </GlassCard>
     </div>
   );

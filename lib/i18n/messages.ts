@@ -44,6 +44,8 @@ export type MessageKey =
   | "prefs.saving"
   | "prefs.saved"
   | "prefs.continue"
+  | "prefs.unsavedLeave"
+  | "prefs.saveHint"
   | "dashboard.placeholder"
   | "dashboard.depth"
   | "dashboard.start"
@@ -119,6 +121,9 @@ const en: Catalog = {
   "prefs.saving": "Saving…",
   "prefs.saved": "Saved",
   "prefs.continue": "Save & continue",
+  "prefs.unsavedLeave":
+    "You have unsaved preference changes. Leave without saving?",
+  "prefs.saveHint": "Tap Save in the top bar when you’re done.",
   "dashboard.placeholder": "What do you want to learn?",
   "dashboard.depth": "Depth",
   "dashboard.start": "Start learning",
@@ -167,6 +172,9 @@ const es: Catalog = {
   "prefs.saving": "Guardando…",
   "prefs.saved": "Guardado",
   "prefs.continue": "Guardar y continuar",
+  "prefs.unsavedLeave":
+    "Tienes cambios sin guardar. ¿Salir sin guardar?",
+  "prefs.saveHint": "Pulsa Guardar en la barra superior cuando termines.",
   "dashboard.placeholder": "¿Qué quieres aprender?",
   "dashboard.depth": "Profundidad",
   "dashboard.start": "Empezar a aprender",
@@ -229,6 +237,8 @@ const zh: Catalog = {
   "prefs.saving": "保存中…",
   "prefs.saved": "已保存",
   "prefs.continue": "保存并继续",
+  "prefs.unsavedLeave": "你有未保存的更改。确定不保存就离开吗？",
+  "prefs.saveHint": "完成后请点击顶部栏的“保存”。",
   "dashboard.placeholder": "你想学什么？",
   "dashboard.depth": "深度",
   "dashboard.start": "开始学习",
@@ -290,6 +300,9 @@ const hi: Catalog = {
   "prefs.saving": "सहेजा जा रहा है…",
   "prefs.saved": "सहेजा गया",
   "prefs.continue": "सहेजें और जारी रखें",
+  "prefs.unsavedLeave":
+    "आपके पास बिना सहेजे बदलाव हैं। बिना सहेजे छोड़ें?",
+  "prefs.saveHint": "जब हो जाए, ऊपर बार में सहेजें दबाएँ।",
   "dashboard.placeholder": "आप क्या सीखना चाहते हैं?",
   "dashboard.depth": "गहराई",
   "dashboard.start": "सीखना शुरू करें",
@@ -338,6 +351,9 @@ const ar: Catalog = {
   "prefs.saving": "جارٍ الحفظ…",
   "prefs.saved": "تم الحفظ",
   "prefs.continue": "حفظ ومتابعة",
+  "prefs.unsavedLeave":
+    "لديك تغييرات غير محفوظة. مغادرة دون حفظ؟",
+  "prefs.saveHint": "اضغط حفظ في الشريط العلوي عند الانتهاء.",
   "dashboard.placeholder": "ماذا تريد أن تتعلّم؟",
   "dashboard.depth": "العمق",
   "dashboard.start": "ابدأ التعلّم",
@@ -400,6 +416,9 @@ const fr: Catalog = {
   "prefs.saving": "Enregistrement…",
   "prefs.saved": "Enregistré",
   "prefs.continue": "Enregistrer et continuer",
+  "prefs.unsavedLeave":
+    "Vous avez des modifications non enregistrées. Quitter sans enregistrer ?",
+  "prefs.saveHint": "Appuyez sur Enregistrer dans la barre du haut.",
   "dashboard.placeholder": "Que voulez-vous apprendre ?",
   "dashboard.depth": "Profondeur",
   "dashboard.start": "Commencer à apprendre",
@@ -448,6 +467,9 @@ const pt: Catalog = {
   "prefs.saving": "Salvando…",
   "prefs.saved": "Salvo",
   "prefs.continue": "Salvar e continuar",
+  "prefs.unsavedLeave":
+    "Você tem alterações não salvas. Sair sem salvar?",
+  "prefs.saveHint": "Toque em Salvar na barra superior ao terminar.",
   "dashboard.placeholder": "O que você quer aprender?",
   "dashboard.depth": "Profundidade",
   "dashboard.start": "Começar a aprender",
@@ -496,6 +518,9 @@ const de: Catalog = {
   "prefs.saving": "Speichern…",
   "prefs.saved": "Gespeichert",
   "prefs.continue": "Speichern & weiter",
+  "prefs.unsavedLeave":
+    "Du hast ungespeicherte Änderungen. Ohne Speichern verlassen?",
+  "prefs.saveHint": "Tippe oben auf Speichern, wenn du fertig bist.",
   "dashboard.placeholder": "Was möchtest du lernen?",
   "dashboard.depth": "Tiefe",
   "dashboard.start": "Lernen starten",

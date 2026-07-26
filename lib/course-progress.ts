@@ -1,6 +1,8 @@
 import type { Lesson } from "@/types/database";
 
-export function computeCourseProgress(lessons: Lesson[]): {
+type ProgressLesson = Pick<Lesson, "id" | "is_completed" | "order_index">;
+
+export function computeCourseProgress(lessons: ProgressLesson[]): {
   total: number;
   completed: number;
   percent: number;
@@ -11,7 +13,7 @@ export function computeCourseProgress(lessons: Lesson[]): {
   return { total, completed, percent };
 }
 
-export function getActiveLessonId(lessons: Lesson[]): string | null {
+export function getActiveLessonId(lessons: ProgressLesson[]): string | null {
   if (lessons.length === 0) return null;
 
   for (let i = 0; i < lessons.length; i++) {

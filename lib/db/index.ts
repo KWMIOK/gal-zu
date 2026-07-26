@@ -325,6 +325,48 @@ export async function listLessonsForCourse(
   return (data ?? []) as Lesson[];
 }
 
+/**
+ * Dashboard progress in one query (avoids N× listLessonsForCourse round-trips).
+ * Only fetches the columns needed for progress + active lesson.
+ */
+export async function listLessonProgressForCourses(
+  courseIds: string[],
+): Promise<
+  Map<
+    string,
+    Array<Pick<Lesson, "id" | "course_id" | "is_completed" | "order_index">>
+  >
+> {
+  const map = new Map<
+    string,
+    Array<Pick<Lesson, "id" | "course_id" | "is_completed" | "order_index">>
+  >();
+  if (courseIds.length === 0) return map;
+
+  const { supabase } = await getAuthedSupabase();
+  const { data, error } = await supabase
+    .from("lessons")
+    .select("id, course_id, is_completed, order_index")
+    .in("course_id", courseIds)
+    .order("order_index", { ascending: true });
+
+  if (error) {
+    throw new DbError(`listLessonProgressForCourses: ${error.message}`, error);
+  }
+
+  for (const row of data ?? []) {
+    const lesson = row as Pick<
+      Lesson,
+      "id" | "course_id" | "is_completed" | "order_index"
+    >;
+    const list = map.get(lesson.course_id) ?? [];
+    list.push(lesson);
+    map.set(lesson.course_id, list);
+  }
+
+  return map;
+}
+
 export async function getLessonById(lessonId: string): Promise<Lesson | null> {
   const { supabase, userId } = await getAuthedSupabase();
 

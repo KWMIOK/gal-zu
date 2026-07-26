@@ -4,6 +4,7 @@ import {
 } from "@/components/dashboard/course-grid";
 import { OmniPromptBar } from "@/components/dashboard/omni-prompt-bar";
 import { SupabaseSetupBanner } from "@/components/dashboard/supabase-setup-banner";
+import { ChromeCookieSync } from "@/components/preferences/chrome-cookie-sync";
 import {
   computeCourseProgress,
   getActiveLessonId,
@@ -12,9 +13,10 @@ import {
   getActorContext,
   getUserProfile,
   listCoursesForUser,
-  listLessonsForCourse,
+  listLessonProgressForCourses,
 } from "@/lib/db/index";
 import { getQuotaSummary, type QuotaSummary } from "@/lib/generation/quota";
+import { normalizeUserProfileRow } from "@/lib/user-profile-normalize";
 import { getClerkSupabaseAccessToken } from "@/lib/supabase/clerk-token";
 
 export const maxDuration = 300;
@@ -28,6 +30,7 @@ export default async function DashboardPage() {
 
   const profile =
     supabaseTokenReady ? await getUserProfile(actor.userId) : null;
+  const chrome = profile ? normalizeUserProfileRow(profile) : null;
   const quota: QuotaSummary | null =
     profile && !actor.isGuest ? await getQuotaSummary(profile) : null;
   const canUsePaidDepths = profile?.plan_tier === "pro";
@@ -36,19 +39,21 @@ export default async function DashboardPage() {
     ? await listCoursesForUser(actor.userId)
     : [];
 
-  const coursesWithProgress: CourseWithProgress[] = await Promise.all(
-    courses.map(async (course) => {
-      const lessons = await listLessonsForCourse(course.id);
-      const { percent, completed, total } = computeCourseProgress(lessons);
-      return {
-        ...course,
-        progressPercent: percent,
-        completedCount: completed,
-        totalLessons: total,
-        activeLessonId: getActiveLessonId(lessons),
-      };
-    }),
+  const lessonsByCourse = await listLessonProgressForCourses(
+    courses.map((course) => course.id),
   );
+
+  const coursesWithProgress: CourseWithProgress[] = courses.map((course) => {
+    const lessons = lessonsByCourse.get(course.id) ?? [];
+    const { percent, completed, total } = computeCourseProgress(lessons);
+    return {
+      ...course,
+      progressPercent: percent,
+      completedCount: completed,
+      totalLessons: total,
+      activeLessonId: getActiveLessonId(lessons),
+    };
+  });
 
   const activeCourses = coursesWithProgress.filter((c) => c.progressPercent < 100);
   const completedCourses = coursesWithProgress.filter(
@@ -57,6 +62,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-6">
+      {chrome ? (
+        <ChromeCookieSync
+          language={chrome.preferred_language}
+          fontStyle={chrome.font_style}
+        />
+      ) : null}
       {!supabaseTokenReady && !actor.isGuest ? <SupabaseSetupBanner /> : null}
 
       <OmniPromptBar

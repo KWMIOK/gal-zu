@@ -9,6 +9,9 @@ import {
   updateUserProfile,
 } from "@/lib/db/index";
 import {
+  writeLearnerChromeCookies,
+} from "@/lib/preferences/chrome-cookies";
+import {
   isFontStyle,
   isPreferredLanguage,
 } from "@/lib/preferences/language-font";
@@ -78,9 +81,14 @@ export async function saveOnboardingPreferences(
       font_style: data.font_style,
     });
 
+    await writeLearnerChromeCookies(
+      data.preferred_language,
+      data.font_style,
+    );
+
+    // Avoid revalidating the root layout — chrome cookies + client applyChrome
+    // keep language/font instant without a full tree refresh.
     revalidatePath("/onboarding");
-    revalidatePath("/dashboard");
-    revalidatePath("/", "layout");
 
     return { ok: true, profile };
   } catch (error) {
@@ -91,4 +99,13 @@ export async function saveOnboardingPreferences(
     console.error("[saveOnboardingPreferences]", error);
     return { ok: false, error: message };
   }
+}
+
+/** Keep chrome cookies aligned when a page already loaded the profile. */
+export async function syncLearnerChromeCookies(
+  language: PreferredLanguage,
+  fontStyle: FontStyle,
+): Promise<void> {
+  if (!isPreferredLanguage(language) || !isFontStyle(fontStyle)) return;
+  await writeLearnerChromeCookies(language, fontStyle);
 }
