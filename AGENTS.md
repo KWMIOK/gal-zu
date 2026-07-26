@@ -315,18 +315,23 @@ entitlements) are done.
   `DEPTH_LOCKED` reject; signup alone does **not** unlock them (Pro
   `plan_tier` does). Header always shows Sign Up (guest) or
   UserButton + Preferences (signed-in).
-- **Capacitor Google is fully browser-free.** Stock Clerk `<SignIn />` /
-  modal buttons navigate the WebView to Google; Android ejects that to
-  Chrome. Native uses `startNativeGoogleAuth`
-  (`lib/capacitor/native-oauth.ts`): `@capgo/capacitor-social-login`
-  opens the OS account sheet (Android Credential Manager bottom sheet /
-  iOS Google Sign-In), then Clerk `signIn.create({ strategy:
-  'google_one_tap', token })` + `setActive`. UI:
-  `components/auth/native-auth-panel.tsx` via `AuthEntry`. Requires
-  `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (Google Cloud *Web* OAuth client —
-  usually the Client ID under Clerk → SSO → Google) plus an Android
-  OAuth client for `com.galzu.app` + signing SHA-1 in the same Cloud
-  project. `CapacitorAuthBridge` remains only as a cold-start deep-link
+- **Capacitor Google is fully browser-free (permanent invariant).** Stock
+  Clerk `<SignIn />` / `<SignUpButton mode="modal">` navigate the WebView
+  to Google; Android ejects that to Chrome. **Never reintroduce Clerk
+  modal/SSO Google entry points on native** — they already regressed once
+  via the header Sign Up button. All CTAs must use `SignUpCta`
+  (`components/auth/sign-up-cta.tsx`), which Links to `/sign-up` on
+  Capacitor. `/sign-in` and `/sign-up` render `NativeAuthPanel` only
+  (`AuthEntry` must not flash web Clerk for even one frame). Google uses
+  `startNativeGoogleAuth` (`lib/capacitor/native-oauth.ts`):
+  `@capgo/capacitor-social-login` opens the OS account sheet (Android
+  Credential Manager bottom sheet / iOS Google Sign-In), then Clerk
+  `signIn.create({ strategy: 'google_one_tap', token })` + `setActive`.
+  Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (Google Cloud *Web* OAuth
+  client — usually the Client ID under Clerk → SSO → Google) plus an
+  Android OAuth client for `com.galzu.app` + signing SHA-1 in the same
+  Cloud project. `openAuthUrl` throws if asked to open a Google OAuth URL
+  on native. `CapacitorAuthBridge` remains only as a cold-start deep-link
   safety net; Google no longer uses Custom Tabs.
 
 ## Where things live

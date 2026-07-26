@@ -1,12 +1,11 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { SignUpButton } from "@clerk/nextjs";
 import { Lock, Sparkles, X } from "lucide-react";
 
+import { SignUpCta } from "@/components/auth/sign-up-cta";
 import { PLAN_TIERS } from "@/lib/billing/tiers";
 import { PAID_DEPTH_LOCK_COPY } from "@/lib/billing/depth-access";
-import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider";
 
 type PaidDepthGateDialogProps = {
   open: boolean;
@@ -25,8 +24,6 @@ export function PaidDepthGateDialog({
   isAnonymous,
   depthLabel,
 }: PaidDepthGateDialogProps) {
-  const { appearance } = useGalzuClerkAppearance();
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -73,14 +70,12 @@ export function PaidDepthGateDialog({
               </button>
             </Dialog.Close>
             {isAnonymous ? (
-              <SignUpButton mode="modal" appearance={appearance}>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
-                >
-                  Sign Up
-                </button>
-              </SignUpButton>
+              <SignUpCta
+                className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+                onNavigate={() => onOpenChange(false)}
+              >
+                Sign Up
+              </SignUpCta>
             ) : (
               <button
                 type="button"

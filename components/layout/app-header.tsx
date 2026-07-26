@@ -1,13 +1,15 @@
 "use client";
 
-import { Show, SignUpButton, UserButton } from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
+import { SignUpCta } from "@/components/auth/sign-up-cta";
 import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider";
 
 /**
- * Always-visible app chrome: Sign Up modal for anonymous learners, avatar +
- * preferences when registered. Modal follows system light/dark via Clerk theme.
+ * Always-visible app chrome: Sign Up for anonymous learners, avatar +
+ * preferences when registered. On Capacitor, Sign Up routes to `/sign-up`
+ * (native Google OS sheet) — never Clerk's browser OAuth modal.
  */
 export function AppHeader() {
   const { appearance } = useGalzuClerkAppearance();
@@ -20,14 +22,9 @@ export function AppHeader() {
         </Link>
         <nav className="flex items-center gap-3 text-sm">
           <Show when="signed-out">
-            <SignUpButton mode="modal" appearance={appearance}>
-              <button
-                type="button"
-                className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500"
-              >
-                Sign Up
-              </button>
-            </SignUpButton>
+            <SignUpCta className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500">
+              Sign Up
+            </SignUpCta>
           </Show>
           <Show when="signed-in">
             <Link

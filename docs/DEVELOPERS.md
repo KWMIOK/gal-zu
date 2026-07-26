@@ -81,7 +81,7 @@ Signup alone does **not** unlock paid depths — only `plan_tier === "pro"`.
 app/                    # App Router: pages, actions, API routes, errors
   actions/              # Server Actions: generation, lessons, courses, onboarding
   api/webhooks/         # RevenueCat webhook
-  courses/[courseId]/  # Roadmap + lesson player
+  courses/[courseId]/   # Roadmap + lesson player
   dashboard/            # Main learn surface
   onboarding/           # Preferences wizard
   sign-in|sign-up|sso-callback/
@@ -185,10 +185,16 @@ flowchart TB
 
 ### Native Google (Capacitor)
 
-- `lib/capacitor/native-oauth.ts` + `components/auth/native-auth-panel.tsx`.
-- OS account UI (not Chrome Custom Tabs for Google): `@capgo/capacitor-social-login`.
-- Requires Google **Web** OAuth client id in `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`, Android OAuth client for `com.galzu.app` + debug/release SHA-1, optional iOS client.
-- `components/mobile/capacitor-auth-bridge.tsx` handles cold-start deep links only.
+**Permanent invariant:** Google auth must stay inside the app (OS account sheet). Never use Clerk `<SignUpButton mode="modal">`, `<SignInButton>`, or hosted `<SignIn />` Google OAuth on Capacitor — Android ejects those navigations to Chrome.
+
+| Piece | Role |
+|-------|------|
+| `SignUpCta` | Only allowed Sign Up CTA; native → `Link` `/sign-up` |
+| `AuthEntry` | Native → `NativeAuthPanel` only (no web Clerk flash) |
+| `startNativeGoogleAuth` | Capgo SocialLogin → Clerk `google_one_tap` |
+| `openAuthUrl` | Throws if asked to open Google OAuth URLs on native |
+
+Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (+ Android OAuth client for `com.galzu.app` + SHA-1). `CapacitorAuthBridge` is cold-start deep-link only; Google does not use Custom Tabs.
 
 ### Middleware public routes
 
@@ -580,6 +586,7 @@ Apply SQL migrations to your Supabase project (`supabase/migrations/` in order).
 4. **Accessibility `enabled` gating** — don’t OR sticky sub-flags back into activation.
 5. **User AI spend consent** — free auto Gemini only for create-course path + opening a pending lesson. No background prefetch unless explicitly opt-in UI. Agents: no live Gemini without user go-ahead (`AGENTS.md`).
 6. **Distinct lesson plans** — `buildLessonPlans` must keep per-lesson topics unique.
+7. **Capacitor Google stays in-app** — never reintroduce Clerk modal/SSO Google on native; use `SignUpCta` + `NativeAuthPanel` + `startNativeGoogleAuth` only.
 
 ### Ops gotchas
 
