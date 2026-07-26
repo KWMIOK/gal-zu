@@ -1,13 +1,13 @@
 "use client";
 
-import { Show, UserButton } from "@clerk/nextjs";
+import { Show, SignUpButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 import { clerkAppearance } from "@/lib/clerk-appearance";
 
 /**
- * Always-visible app chrome: Sign Up for anonymous learners, avatar +
- * preferences when registered.
+ * Always-visible app chrome: Sign Up modal for anonymous learners, avatar +
+ * preferences when registered. Modal uses the same `clerkAppearance` theme.
  */
 export function AppHeader() {
   return (
@@ -18,12 +18,14 @@ export function AppHeader() {
         </Link>
         <nav className="flex items-center gap-3 text-sm">
           <Show when="signed-out">
-            <Link
-              href="/sign-up"
-              className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500"
-            >
-              Sign Up
-            </Link>
+            <SignUpButton mode="modal" appearance={clerkAppearance}>
+              <button
+                type="button"
+                className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500"
+              >
+                Sign Up
+              </button>
+            </SignUpButton>
           </Show>
           <Show when="signed-in">
             <Link

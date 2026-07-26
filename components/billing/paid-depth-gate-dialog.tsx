@@ -1,11 +1,12 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import Link from "next/link";
+import { SignUpButton } from "@clerk/nextjs";
 import { Lock, Sparkles, X } from "lucide-react";
 
 import { PLAN_TIERS } from "@/lib/billing/tiers";
 import { PAID_DEPTH_LOCK_COPY } from "@/lib/billing/depth-access";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 
 type PaidDepthGateDialogProps = {
   open: boolean;
@@ -70,12 +71,14 @@ export function PaidDepthGateDialog({
               </button>
             </Dialog.Close>
             {isAnonymous ? (
-              <Link
-                href="/sign-up"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
-              >
-                Sign Up
-              </Link>
+              <SignUpButton mode="modal" appearance={clerkAppearance}>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+                >
+                  Sign Up
+                </button>
+              </SignUpButton>
             ) : (
               <button
                 type="button"

@@ -1,5 +1,9 @@
 import type { ClerkAppearanceTheme } from "@clerk/shared/types";
 
+/** Shown above Sign Up (AuthShell + Clerk localization / modal). */
+export const SIGN_UP_SUBTITLE =
+  "Create your account to personalise your experience as you learn";
+
 /**
  * Clerk UI tokens aligned with Gal-zu's zinc + violet surfaces
  * (`app/layout.tsx`, dashboard buttons, auth shell).
@@ -9,7 +13,6 @@ import type { ClerkAppearanceTheme } from "@clerk/shared/types";
  */
 export const clerkAppearance = {
   layout: {
-    // AuthShell already shows the Gal-zu brand above the form.
     logoPlacement: "none",
     socialButtonsPlacement: "top",
     socialButtonsVariant: "blockButton",
@@ -27,6 +30,7 @@ export const clerkAppearance = {
     colorMuted: "#fafafa",
     colorInput: "#fafafa",
     colorInputForeground: "#18181b",
+    colorModalBackdrop: "#18181b",
     borderRadius: "0.75rem",
     fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
     fontFamilyButtons:
@@ -55,7 +59,32 @@ export const clerkAppearance = {
     alternativeMethodsBlockButton:
       "border border-zinc-300 text-zinc-800 hover:bg-zinc-50 rounded-lg",
     otpCodeFieldInput: "border-zinc-300 focus:border-violet-500",
+    modalBackdrop: "bg-zinc-950/50 backdrop-blur-sm",
     modalContent: "bg-transparent",
-    modalCloseButton: "text-zinc-500 hover:text-zinc-800",
+    modalCloseButton:
+      "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg",
   },
 } as ClerkAppearanceTheme;
+
+/**
+ * Path-based `/sign-up` sits under AuthShell (Gal-zu + subtitle already shown) —
+ * hide Clerk's duplicate header so the card matches the rest of the app chrome.
+ */
+export const clerkSignUpPageAppearance = {
+  ...clerkAppearance,
+  elements: {
+    ...(clerkAppearance as { elements?: Record<string, string> }).elements,
+    headerTitle: "hidden",
+    headerSubtitle: "hidden",
+  },
+} as ClerkAppearanceTheme;
+
+/** Clerk copy shared by modal Sign Up and the hosted component. */
+export const clerkLocalization = {
+  signUp: {
+    start: {
+      title: "Create your account",
+      subtitle: SIGN_UP_SUBTITLE,
+    },
+  },
+};

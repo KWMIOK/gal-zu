@@ -5,7 +5,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AppHeader } from "@/components/layout/app-header";
 import { CapacitorAuthBridge } from "@/components/mobile/capacitor-auth-bridge";
 import { RevenueCatInitializer } from "@/components/mobile/revenuecat-initializer";
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import {
+  clerkAppearance,
+  clerkLocalization,
+} from "@/lib/clerk-appearance";
 
 import "./globals.css";
 
@@ -39,7 +42,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={clerkAppearance}>
+    <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization}>
       <html
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}

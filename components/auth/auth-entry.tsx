@@ -4,7 +4,10 @@ import { SignIn, SignUp } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
 import { NativeAuthPanel } from "@/components/auth/native-auth-panel";
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import {
+  clerkAppearance,
+  clerkSignUpPageAppearance,
+} from "@/lib/clerk-appearance";
 import { isNativePlatform } from "@/lib/capacitor/is-native";
 
 type Mode = "sign-in" | "sign-up";
@@ -35,7 +38,7 @@ export function AuthEntry({ mode }: { mode: Mode }) {
     />
   ) : (
     <SignUp
-      appearance={clerkAppearance}
+      appearance={clerkSignUpPageAppearance}
       routing="path"
       path="/sign-up"
       signInUrl="/sign-in"
