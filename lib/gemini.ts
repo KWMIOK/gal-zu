@@ -435,17 +435,15 @@ Scope rules (four depth tiers — pick modules WITHIN the given range based on h
   cannot be honestly covered in 5 modules, so do not default there just because it's a round number. Every module
   needs a distinct, concrete, topic-specific title/description reflecting real curriculum progression.
 
-PROFILE-SHAPED ROADMAP (mandatory when profile asks for it):
-- ADHD / micro-learning: prefer MORE, SHORTER modules with bite-sized titles over fewer long modules.
-- Slow pace: favor foundational scaffolding modules before advanced ones; do not skip prerequisites.
-- Fast pace: you may compress basics and surface advanced application modules earlier.
-- Hands-on learners: first_lesson.format should prefer "quiz" or a practice-heavy slideshow topic.
-- Auditory learners: first_lesson.format may be "script" when a spoken lesson fits the topic.
-- Reading/writing learners: first_lesson.format may be "cheat_sheet" when a dense reference fits.
-- Dyslexia: keep module titles short/plain; avoid dense reading-heavy cheat_sheet as first_lesson.
-- Dysgraphia: prefer "quiz" / selection practice over writing-heavy cheat_sheet formats.
-- NVLD: favor modules with explicit verbal/stepwise descriptions; do not rely on visual-only titles.
-- APD: prefer slideshow (strong on-screen text) over script-only first lessons.
+PROFILE-SHAPED ROADMAP (mandatory — honor the COGNITIVE PROFILE block below):
+- Resolve conflicts via accessibility structural overrides (ADHD / dyslexia / dysgraphia / dyscalculia / math anxiety / NVLD / APD beat conflicting pace density).
+- ADHD micro-learning: MORE, SHORTER modules with bite-sized titles; micro-checkpoints.
+- Slow / effective-slow pace: foundational scaffolding before advanced modules.
+- Fast pace only when not overridden: compress basics; surface advanced application earlier.
+- Hands-on / dysgraphia: prefer quiz or practice-heavy first_lesson.
+- Auditory without APD: first_lesson may be script; with APD prefer slideshow (text-first).
+- Reading/writing without dyslexia/dysgraphia: cheat_sheet may fit; otherwise avoid dense reading formats.
+- NVLD: explicit verbal/stepwise module descriptions — never visual-only titles.
 ${buildProfileAdaptationInstructions(profile)}`;
 
   const userPrompt = [
@@ -580,6 +578,8 @@ ${format === "slideshow" ? SLIDESHOW_MULTIMODAL_RULES : ""}
 cheat_sheet | quiz | script: factual, topic-specific content only.
 
 Use unique string slide/question ids.
+
+Before drafting JSON, apply the pre-resolved COGNITIVE PROFILE (styles + pace + accessibilities). Structural overrides in that block are non-negotiable.
 ${buildProfileAdaptationInstructions(profile)}`;
 
   const userPrompt = [

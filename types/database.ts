@@ -71,6 +71,11 @@ export interface ApdAccommodations {
   slow_clear_narration: boolean;
 }
 
+/**
+ * Learner accessibility / support modes stored on
+ * `user_profiles.neurodivergent_accommodations` (JSON column name kept for
+ * backward compatibility; product UI labels this section "Accessibilities").
+ */
 export interface NeurodivergentAccommodations {
   adhd: AdhdAccommodations;
   dyscalculia: DyscalculiaAccommodations;

@@ -118,7 +118,7 @@ export function OnboardingWizard({
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
           These shape every new course and lesson — slide length, lesson
-          formats (quiz vs slides vs script), tone, and accommodations. The
+          formats (quiz vs slides vs script), tone, and accessibilities. The
           app also learns from how you use it and refines later lessons
           (no extra AI cost for that).
         </p>
@@ -156,7 +156,7 @@ export function OnboardingWizard({
 
         <section className="space-y-3 border-t border-zinc-200/80 pt-6 dark:border-zinc-700/80">
           <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-            <Calculator className="h-4 w-4" /> Accommodations
+            <Calculator className="h-4 w-4" /> Accessibilities
           </h2>
 
           <ToggleRow
