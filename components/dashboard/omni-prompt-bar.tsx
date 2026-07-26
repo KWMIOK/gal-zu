@@ -7,6 +7,7 @@ import { Loader2, Sparkles, Sprout } from "lucide-react";
 
 import { createCourseFromPrompt } from "@/app/actions/generation";
 import { PaidDepthGateDialog } from "@/components/billing/paid-depth-gate-dialog";
+import { AnimatedSelect } from "@/components/ui/animated-select";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   isDepthLockedMessage,
@@ -78,12 +79,7 @@ export function OmniPromptBar({
       ? null
       : depthOptions.find((d) => d.id === depth)?.hint ?? null;
 
-  function handleDepthChange(next: string) {
-    if (!next) {
-      setDepth("");
-      return;
-    }
-    const id = next as PromptDepth;
+  function handleDepthChange(id: PromptDepth) {
     const option = depthOptions.find((d) => d.id === id);
     if (option?.paid && !canUsePaidDepths) {
       setGateLabel(option.label);
@@ -188,29 +184,20 @@ export function OmniPromptBar({
           </div>
 
           <div className="space-y-2">
-            <select
+            <AnimatedSelect
               value={depth}
-              onChange={(e) => handleDepthChange(e.target.value)}
+              onChange={handleDepthChange}
               disabled={pending}
               aria-label="Depth"
-              className={`w-full max-w-xs rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2.5 text-sm shadow-inner outline-none ring-violet-500/30 focus:ring-2 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/80 ${
-                depth === ""
-                  ? "text-zinc-400"
-                  : "text-zinc-900 dark:text-zinc-50"
-              }`}
-            >
-              <option value="" disabled>
-                Depth
-              </option>
-              {depthOptions.map(({ id, label, paid }) => {
-                const locked = Boolean(paid && !canUsePaidDepths);
-                return (
-                  <option key={id} value={id}>
-                    {locked ? `${label} (Pro)` : label}
-                  </option>
-                );
-              })}
-            </select>
+              placeholder="Depth"
+              options={depthOptions.map(({ id, label, hint, paid }) => ({
+                value: id,
+                label,
+                hint,
+                locked: Boolean(paid && !canUsePaidDepths),
+                lockedBadge: "Pro",
+              }))}
+            />
             {selectedHint ? (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {selectedHint}
