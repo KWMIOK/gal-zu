@@ -12,33 +12,15 @@ export type AnimatedSelectOption<T extends string> = {
   lockedBadge?: string;
 };
 
-type AnimatedSelectProps<T extends string> = {
-  value: T | "";
-  onChange: (value: T) => void;
-  options: AnimatedSelectOption<T>[];
+type SharedSelectProps = {
   placeholder: string;
   disabled?: boolean;
   "aria-label"?: string;
   className?: string;
 };
 
-/**
- * App-styled select: trigger matches Gal-zu inputs; the menu grows downward
- * from the control with a short height/opacity motion (not the OS popup).
- */
-export function AnimatedSelect<T extends string>({
-  value,
-  onChange,
-  options,
-  placeholder,
-  disabled = false,
-  "aria-label": ariaLabel,
-  className = "",
-}: AnimatedSelectProps<T>) {
-  const [open, setOpen] = useState(false);
+function useSelectOpen(open: boolean, setOpen: (open: boolean) => void) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const listId = useId();
-  const selected = options.find((option) => option.value === value);
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +41,44 @@ export function AnimatedSelect<T extends string>({
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, setOpen]);
+
+  return rootRef;
+}
+
+const triggerClassName = (open: boolean, hasValue: boolean) =>
+  `flex w-full items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2.5 text-left text-sm shadow-inner outline-none ring-violet-500/30 transition focus:ring-2 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/80 ${
+    open ? "ring-2" : ""
+  } ${
+    hasValue
+      ? "text-zinc-900 dark:text-zinc-50"
+      : "text-zinc-400 dark:text-zinc-500"
+  }`;
+
+const menuClassName =
+  "mt-2 space-y-0.5 rounded-xl border border-zinc-200/80 bg-white/90 p-1 shadow-lg shadow-violet-500/5 backdrop-blur-xl dark:border-zinc-700 dark:bg-zinc-950/90";
+
+/**
+ * App-styled select: trigger matches Gal-zu inputs; the menu grows downward
+ * from the control with a short height/opacity motion (not the OS popup).
+ */
+export function AnimatedSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+  "aria-label": ariaLabel,
+  className = "",
+}: SharedSelectProps & {
+  value: T | "";
+  onChange: (value: T) => void;
+  options: AnimatedSelectOption<T>[];
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useSelectOpen(open, setOpen);
+  const listId = useId();
+  const selected = options.find((option) => option.value === value);
 
   return (
     <div ref={rootRef} className={`w-full ${className || "max-w-xs"}`}>
@@ -71,13 +90,7 @@ export function AnimatedSelect<T extends string>({
         aria-controls={listId}
         aria-label={ariaLabel}
         onClick={() => setOpen((current) => !current)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2.5 text-left text-sm shadow-inner outline-none ring-violet-500/30 transition focus:ring-2 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/80 ${
-          open ? "ring-2" : ""
-        } ${
-          selected
-            ? "text-zinc-900 dark:text-zinc-50"
-            : "text-zinc-400 dark:text-zinc-500"
-        }`}
+        className={triggerClassName(open, Boolean(selected))}
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
         <ChevronDown
@@ -101,7 +114,7 @@ export function AnimatedSelect<T extends string>({
               id={listId}
               role="listbox"
               aria-label={ariaLabel}
-              className="mt-2 space-y-0.5 rounded-xl border border-zinc-200/80 bg-white/90 p-1 shadow-lg shadow-violet-500/5 backdrop-blur-xl dark:border-zinc-700 dark:bg-zinc-950/90"
+              className={menuClassName}
             >
               {options.map((option) => {
                 const isSelected = option.value === value;
@@ -162,6 +175,111 @@ export function AnimatedSelect<T extends string>({
                           </span>
                         ) : null}
                       </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Multi-select variant: clicking an option toggles it and keeps the menu open.
+ * Selected rows show a check beside the label.
+ */
+export function AnimatedMultiSelect<T extends string>({
+  values,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+  "aria-label": ariaLabel,
+  className = "",
+}: SharedSelectProps & {
+  values: T[];
+  onChange: (values: T[]) => void;
+  options: AnimatedSelectOption<T>[];
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useSelectOpen(open, setOpen);
+  const listId = useId();
+  const selectedOptions = options.filter((option) =>
+    values.includes(option.value),
+  );
+  const triggerLabel =
+    selectedOptions.length > 0
+      ? selectedOptions.map((option) => option.label).join(", ")
+      : placeholder;
+
+  function toggle(value: T) {
+    if (values.includes(value)) {
+      onChange(values.filter((current) => current !== value));
+      return;
+    }
+    onChange([...values, value]);
+  }
+
+  return (
+    <div ref={rootRef} className={`w-full ${className || "max-w-xs"}`}>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-label={ariaLabel}
+        onClick={() => setOpen((current) => !current)}
+        className={triggerClassName(open, selectedOptions.length > 0)}
+      >
+        <span className="truncate">{triggerLabel}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200 dark:text-zinc-500 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="menu"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <ul
+              id={listId}
+              role="listbox"
+              aria-multiselectable="true"
+              aria-label={ariaLabel}
+              className={menuClassName}
+            >
+              {options.map((option) => {
+                const isSelected = values.includes(option.value);
+                return (
+                  <li key={option.value} role="presentation">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      disabled={disabled}
+                      onClick={() => toggle(option.value)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${
+                        isSelected
+                          ? "bg-violet-600 text-white"
+                          : "text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-900"
+                      }`}
+                    >
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                        {isSelected ? <Check className="h-3.5 w-3.5" /> : null}
+                      </span>
+                      <span className="font-medium">{option.label}</span>
                     </button>
                   </li>
                 );

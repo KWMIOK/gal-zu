@@ -2,10 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowRight, Brain, Calculator, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Calculator, CheckCircle2 } from "lucide-react";
 
 import { saveOnboardingPreferences } from "@/app/actions/onboarding";
-import { AnimatedSelect } from "@/components/ui/animated-select";
+import {
+  AnimatedMultiSelect,
+  AnimatedSelect,
+} from "@/components/ui/animated-select";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   DEFAULT_LEARNING_STYLES,
@@ -14,11 +17,13 @@ import {
   type NeurodivergentAccommodations,
 } from "@/types/database";
 
-const styleOptions: { key: keyof LearningStyles; label: string }[] = [
-  { key: "visual", label: "Visual" },
-  { key: "auditory", label: "Auditory" },
-  { key: "hands_on", label: "Hands-on" },
-  { key: "reading_writing", label: "Reading / writing" },
+type StyleKey = Exclude<keyof LearningStyles, "preferred_pace">;
+
+const styleOptions: { value: StyleKey; label: string }[] = [
+  { value: "visual", label: "Visual" },
+  { value: "auditory", label: "Auditory" },
+  { value: "hands_on", label: "Hands-on" },
+  { value: "reading_writing", label: "Reading / writing" },
 ];
 
 const paceOptions: {
@@ -43,6 +48,12 @@ const paceOptions: {
   },
 ];
 
+function selectedStyleKeys(styles: LearningStyles): StyleKey[] {
+  return styleOptions
+    .map((option) => option.value)
+    .filter((key) => styles[key] === true);
+}
+
 export function OnboardingWizard({
   mode = "onboarding",
   initialLearningStyles,
@@ -64,10 +75,15 @@ export function OnboardingWizard({
       initialAccommodations ?? { ...DEFAULT_NEURODIVERGENT_ACCOMMODATIONS },
     );
 
-  function toggleStyle(key: keyof LearningStyles) {
-    if (key === "preferred_pace") return;
-    setLearningStyles((prev) => ({ ...prev, [key]: !prev[key] }));
+  function setSelectedStyles(keys: StyleKey[]) {
     setSaved(false);
+    setLearningStyles((prev) => {
+      const next = { ...prev };
+      for (const option of styleOptions) {
+        next[option.value] = keys.includes(option.value);
+      }
+      return next;
+    });
   }
 
   function submit() {
@@ -96,61 +112,44 @@ export function OnboardingWizard({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-12">
-      {mode === "onboarding" ? (
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Tune your learning experience
-          </h1>
-          <p className="text-zinc-600 dark:text-zinc-400">
-            These shape every new course and lesson — slide length, lesson
-            formats (quiz vs slides vs script), tone, and accommodations. The
-            app also learns from how you use it and refines later lessons
-            (no extra AI cost for that).
-          </p>
-        </div>
-      ) : null}
+      <div className="space-y-2 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Tune your learning experience
+        </h1>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          These shape every new course and lesson — slide length, lesson
+          formats (quiz vs slides vs script), tone, and accommodations. The
+          app also learns from how you use it and refines later lessons
+          (no extra AI cost for that).
+        </p>
+      </div>
 
       <GlassCard className="space-y-6 p-6">
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-            <Brain className="h-4 w-4" /> Learning styles
-          </h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {styleOptions.map(({ key, label }) => {
-              const active = learningStyles[key] === true;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => toggleStyle(key)}
-                  className={`w-full rounded-full px-3 py-2 text-sm font-medium transition ${
-                    active
-                      ? "bg-violet-600 text-white shadow-md shadow-violet-500/30"
-                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-4">
-            <AnimatedSelect
-              value={learningStyles.preferred_pace ?? "moderate"}
-              onChange={(pace) => {
-                setSaved(false);
-                setLearningStyles((prev) => ({
-                  ...prev,
-                  preferred_pace: pace,
-                }));
-              }}
-              disabled={pending}
-              aria-label="Preferred pace"
-              placeholder="Preferred pace"
-              className="max-w-none"
-              options={paceOptions}
-            />
-          </div>
+        <section className="space-y-3">
+          <AnimatedMultiSelect
+            values={selectedStyleKeys(learningStyles)}
+            onChange={setSelectedStyles}
+            disabled={pending}
+            aria-label="Learning styles"
+            placeholder="Learning styles"
+            className="max-w-none"
+            options={styleOptions}
+          />
+          <AnimatedSelect
+            value={learningStyles.preferred_pace ?? "moderate"}
+            onChange={(pace) => {
+              setSaved(false);
+              setLearningStyles((prev) => ({
+                ...prev,
+                preferred_pace: pace,
+              }));
+            }}
+            disabled={pending}
+            aria-label="Learning pace"
+            placeholder="Learning pace"
+            className="max-w-none"
+            options={paceOptions}
+          />
         </section>
 
         <section className="space-y-3 border-t border-zinc-200/80 pt-6 dark:border-zinc-700/80">
