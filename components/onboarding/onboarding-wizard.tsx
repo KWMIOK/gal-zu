@@ -5,65 +5,44 @@ import { useState, useTransition } from "react";
 import { ArrowRight, Calculator, CheckCircle2 } from "lucide-react";
 
 import { saveOnboardingPreferences } from "@/app/actions/onboarding";
+import { useT } from "@/components/preferences/learner-prefs-provider";
 import {
   AnimatedMultiSelect,
   AnimatedSelect,
 } from "@/components/ui/animated-select";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
+  FONT_STYLE_OPTIONS,
+  PREFERRED_LANGUAGE_OPTIONS,
+} from "@/lib/preferences/language-font";
+import {
+  DEFAULT_FONT_STYLE,
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
+  DEFAULT_PREFERRED_LANGUAGE,
+  type FontStyle,
   type LearningStyles,
   type NeurodivergentAccommodations,
+  type PreferredLanguage,
 } from "@/types/database";
 
 type StyleKey = Exclude<keyof LearningStyles, "preferred_pace">;
-
-const styleOptions: { value: StyleKey; label: string }[] = [
-  { value: "visual", label: "Visual" },
-  { value: "auditory", label: "Auditory" },
-  { value: "hands_on", label: "Hands-on" },
-  { value: "reading_writing", label: "Reading / writing" },
-];
-
-const paceOptions: {
-  value: NonNullable<LearningStyles["preferred_pace"]>;
-  label: string;
-  hint: string;
-}[] = [
-  {
-    value: "slow",
-    label: "Slow & steady",
-    hint: "More slides, gentler progression.",
-  },
-  {
-    value: "moderate",
-    label: "Moderate",
-    hint: "Balanced pacing for most topics.",
-  },
-  {
-    value: "fast",
-    label: "Fast",
-    hint: "Denser lessons, fewer pauses.",
-  },
-];
-
-function selectedStyleKeys(styles: LearningStyles): StyleKey[] {
-  return styleOptions
-    .map((option) => option.value)
-    .filter((key) => styles[key] === true);
-}
 
 export function OnboardingWizard({
   mode = "onboarding",
   initialLearningStyles,
   initialAccommodations,
+  initialPreferredLanguage,
+  initialFontStyle,
 }: {
   mode?: "onboarding" | "settings";
   initialLearningStyles?: LearningStyles;
   initialAccommodations?: NeurodivergentAccommodations;
+  initialPreferredLanguage?: PreferredLanguage;
+  initialFontStyle?: FontStyle;
 }) {
   const router = useRouter();
+  const t = useT();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -74,6 +53,70 @@ export function OnboardingWizard({
     useState<NeurodivergentAccommodations>(
       initialAccommodations ?? { ...DEFAULT_NEURODIVERGENT_ACCOMMODATIONS },
     );
+  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage>(
+    initialPreferredLanguage ?? DEFAULT_PREFERRED_LANGUAGE,
+  );
+  const [fontStyle, setFontStyle] = useState<FontStyle>(
+    initialFontStyle ?? DEFAULT_FONT_STYLE,
+  );
+
+  const styleOptions: { value: StyleKey; label: string }[] = [
+    { value: "visual", label: t("prefs.style.visual") },
+    { value: "auditory", label: t("prefs.style.auditory") },
+    { value: "hands_on", label: t("prefs.style.hands_on") },
+    { value: "reading_writing", label: t("prefs.style.reading_writing") },
+  ];
+
+  const paceOptions: {
+    value: NonNullable<LearningStyles["preferred_pace"]>;
+    label: string;
+    hint: string;
+  }[] = [
+    {
+      value: "slow",
+      label: t("prefs.pace.slow"),
+      hint: t("prefs.pace.slowHint"),
+    },
+    {
+      value: "moderate",
+      label: t("prefs.pace.moderate"),
+      hint: t("prefs.pace.moderateHint"),
+    },
+    {
+      value: "fast",
+      label: t("prefs.pace.fast"),
+      hint: t("prefs.pace.fastHint"),
+    },
+  ];
+
+  const languageOptions = PREFERRED_LANGUAGE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: `${option.label} · ${option.nativeLabel}`,
+  }));
+
+  const fontOptions = FONT_STYLE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(
+      option.value === "standard_clean"
+        ? "prefs.font.standard_clean"
+        : option.value === "dyslexia_support"
+          ? "prefs.font.dyslexia_support"
+          : "prefs.font.max_legibility",
+    ),
+    hint: t(
+      option.value === "standard_clean"
+        ? "prefs.font.standard_cleanHint"
+        : option.value === "dyslexia_support"
+          ? "prefs.font.dyslexia_supportHint"
+          : "prefs.font.max_legibilityHint",
+    ),
+  }));
+
+  function selectedStyleKeys(styles: LearningStyles): StyleKey[] {
+    return styleOptions
+      .map((option) => option.value)
+      .filter((key) => styles[key] === true);
+  }
 
   function setSelectedStyles(keys: StyleKey[]) {
     setSaved(false);
@@ -94,6 +137,8 @@ export function OnboardingWizard({
       const result = await saveOnboardingPreferences({
         learning_styles: learningStyles,
         neurodivergent_accommodations: accommodations,
+        preferred_language: preferredLanguage,
+        font_style: fontStyle,
       });
 
       if (!result.ok) {
@@ -114,24 +159,45 @@ export function OnboardingWizard({
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-12">
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-semibold tracking-tight">
-          Tune your learning experience
+          {t("prefs.title")}
         </h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          These shape every new course and lesson — slide length, lesson
-          formats (quiz vs slides vs script), tone, and accessibilities. The
-          app also learns from how you use it and refines later lessons
-          (no extra AI cost for that).
-        </p>
+        <p className="text-zinc-600 dark:text-zinc-400">{t("prefs.subtitle")}</p>
       </div>
 
       <GlassCard className="space-y-6 p-6">
         <section className="space-y-3">
+          <AnimatedSelect
+            value={preferredLanguage}
+            onChange={(value) => {
+              setSaved(false);
+              setPreferredLanguage(value);
+            }}
+            disabled={pending}
+            aria-label={t("prefs.preferredLanguage")}
+            placeholder={t("prefs.preferredLanguage")}
+            keepPlaceholder
+            className="max-w-none"
+            options={languageOptions}
+          />
+          <AnimatedSelect
+            value={fontStyle}
+            onChange={(value) => {
+              setSaved(false);
+              setFontStyle(value);
+            }}
+            disabled={pending}
+            aria-label={t("prefs.fontStyle")}
+            placeholder={t("prefs.fontStyle")}
+            keepPlaceholder
+            className="max-w-none"
+            options={fontOptions}
+          />
           <AnimatedMultiSelect
             values={selectedStyleKeys(learningStyles)}
             onChange={setSelectedStyles}
             disabled={pending}
-            aria-label="Learning styles"
-            placeholder="Learning styles"
+            aria-label={t("prefs.learningStyles")}
+            placeholder={t("prefs.learningStyles")}
             keepPlaceholder
             className="max-w-none"
             options={styleOptions}
@@ -146,8 +212,8 @@ export function OnboardingWizard({
               }));
             }}
             disabled={pending}
-            aria-label="Learning pace"
-            placeholder="Learning pace"
+            aria-label={t("prefs.learningPace")}
+            placeholder={t("prefs.learningPace")}
             keepPlaceholder
             className="max-w-none"
             options={paceOptions}
@@ -156,12 +222,12 @@ export function OnboardingWizard({
 
         <section className="space-y-3 border-t border-zinc-200/80 pt-6 dark:border-zinc-700/80">
           <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-            <Calculator className="h-4 w-4" /> Accessibilities
+            <Calculator className="h-4 w-4" /> {t("prefs.accessibilities")}
           </h2>
 
           <ToggleRow
-            label="ADHD micro-learning mode"
-            description="Shorter slides, fewer distractions, break prompts."
+            label={t("prefs.adhd")}
+            description={t("prefs.adhdDesc")}
             checked={accommodations.adhd.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -179,8 +245,8 @@ export function OnboardingWizard({
           />
 
           <ToggleRow
-            label="Dyscalculia supports"
-            description="Visual math aids, step-by-step breakdowns, color-coded numbers."
+            label={t("prefs.dyscalculia")}
+            description={t("prefs.dyscalculiaDesc")}
             checked={accommodations.dyscalculia.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -199,8 +265,8 @@ export function OnboardingWizard({
           />
 
           <ToggleRow
-            label="Math anxiety low-pressure mode"
-            description="Gentle progression, encouragement, no timers."
+            label={t("prefs.mathAnxiety")}
+            description={t("prefs.mathAnxietyDesc")}
             checked={accommodations.math_anxiety.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -212,14 +278,15 @@ export function OnboardingWizard({
                   gentle_progression: checked,
                   hide_timers: checked,
                   encouragement_prompts: checked,
+                  optional_hints_default: checked,
                 },
               }));
             }}
           />
 
           <ToggleRow
-            label="Disorders of Reading (Dyslexia)"
-            description="Shorter sentences, spaced layout, phonetic guides, strong visuals."
+            label={t("prefs.dyslexia")}
+            description={t("prefs.dyslexiaDesc")}
             checked={accommodations.dyslexia.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -237,8 +304,8 @@ export function OnboardingWizard({
           />
 
           <ToggleRow
-            label="Disorders of Written Expression (Dysgraphia)"
-            description="Less writing load — prefer selection and matching practice."
+            label={t("prefs.dysgraphia")}
+            description={t("prefs.dysgraphiaDesc")}
             checked={accommodations.dysgraphia.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -255,8 +322,8 @@ export function OnboardingWizard({
           />
 
           <ToggleRow
-            label="Nonverbal Learning Disability (NVLD)"
-            description="Explicit verbal steps; less figurative or diagram-only teaching."
+            label={t("prefs.nvld")}
+            description={t("prefs.nvldDesc")}
             checked={accommodations.nvld.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -273,8 +340,8 @@ export function OnboardingWizard({
           />
 
           <ToggleRow
-            label="Auditory Processing Disorder (APD)"
-            description="Full on-screen text; slow, clear narration that matches the slides."
+            label={t("prefs.apd")}
+            description={t("prefs.apdDesc")}
             checked={accommodations.apd.enabled}
             onChange={(checked) => {
               setSaved(false);
@@ -300,8 +367,7 @@ export function OnboardingWizard({
         {saved && mode === "settings" ? (
           <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
             <CheckCircle2 className="h-4 w-4" />
-            Preferences saved — new courses and ungenerated lessons will use
-            these settings.
+            {t("prefs.saved")}
           </p>
         ) : null}
 
@@ -312,10 +378,10 @@ export function OnboardingWizard({
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-60"
         >
           {pending
-            ? "Saving…"
+            ? t("prefs.saving")
             : mode === "settings"
-              ? "Save preferences"
-              : "Continue to dashboard"}
+              ? t("prefs.save")
+              : t("prefs.continue")}
           <ArrowRight className="h-4 w-4" />
         </button>
       </GlassCard>

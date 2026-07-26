@@ -1,8 +1,16 @@
 import {
+  DEFAULT_FONT_STYLE,
   DEFAULT_LEARNING_ADAPTATION,
+  DEFAULT_PREFERRED_LANGUAGE,
   type PreferredPace,
   type UserProfile,
 } from "@/types/database";
+import {
+  fontStyleMeta,
+  isFontStyle,
+  isPreferredLanguage,
+  languageMeta,
+} from "@/lib/preferences/language-font";
 
 /**
  * Structural overrides resolved from pace + learning styles + accessibility
@@ -145,6 +153,33 @@ export function buildCognitiveProfileSystemBlock(profile: UserProfile): string {
       .join("\n"),
   );
 
+  const language = languageMeta(
+    isPreferredLanguage(profile.preferred_language)
+      ? profile.preferred_language
+      : DEFAULT_PREFERRED_LANGUAGE,
+  );
+  const font = fontStyleMeta(
+    isFontStyle(profile.font_style) ? profile.font_style : DEFAULT_FONT_STYLE,
+  );
+  sections.push(
+    [
+      "[LANGUAGE — mandatory for all learner-facing JSON string values]",
+      `- Preferred language: ${language.geminiName} (code: ${language.value}).`,
+      `- Write titles, descriptions, slide text_content, spoken_narration, callouts, quiz prompts/choices/explanations, cheat-sheet markdown, and any other learner-visible prose in ${language.geminiName}.`,
+      "- Keep JSON keys, enums, ids, and format type strings in English.",
+      "- EXCEPTION — language-learning topics: when teaching a language, follow LANGUAGE-LEARNING TOPICS rules for the language being taught (native script in examples). Meta-instruction and UI chrome strings in the JSON should still be in the preferred language above.",
+    ].join("\n"),
+  );
+  sections.push(
+    [
+      "[TYPOGRAPHY]",
+      `- Learner UI font preference: ${font.label} (${font.hint}).`,
+      font.value === "dyslexia_support" || font.value === "max_legibility"
+        ? "- Prefer short lines, clear hierarchy, and scannable bullets; avoid tiny dense tables embedded in prose."
+        : "- Standard clean typography — normal density is fine when accessibilities allow.",
+    ].join("\n"),
+  );
+
   const styleLines: string[] = ["[LEARNING STYLES]"];
   if (ls.visual) {
     styleLines.push(
@@ -266,7 +301,7 @@ export function buildCognitiveProfileSystemBlock(profile: UserProfile): string {
   sections.push(
     [
       "[HARD RULES]",
-      "- Every style, pace, and accessibility bullet above is mandatory.",
+      "- Every style, pace, language, typography, and accessibility bullet above is mandatory.",
       "- Accessibility structural overrides always beat conflicting style/pace density preferences.",
       "- The lesson/roadmap JSON must look different for this profile than for a learner with opposite preferences.",
       "- Never silently ignore any listed item.",

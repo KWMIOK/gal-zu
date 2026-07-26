@@ -8,16 +8,24 @@ import {
   getUserProfile,
   updateUserProfile,
 } from "@/lib/db/index";
+import {
+  isFontStyle,
+  isPreferredLanguage,
+} from "@/lib/preferences/language-font";
 import { normalizeUserProfileRow } from "@/lib/user-profile-normalize";
 import type {
+  FontStyle,
   LearningStyles,
   NeurodivergentAccommodations,
+  PreferredLanguage,
   UserProfile,
 } from "@/types/database";
 
 export type OnboardingFormState = {
   learning_styles: LearningStyles;
   neurodivergent_accommodations: NeurodivergentAccommodations;
+  preferred_language: PreferredLanguage;
+  font_style: FontStyle;
 };
 
 export type SavePreferencesResult =
@@ -27,6 +35,8 @@ export type SavePreferencesResult =
 export async function loadMyProfilePreferences(): Promise<{
   learning_styles: LearningStyles;
   neurodivergent_accommodations: NeurodivergentAccommodations;
+  preferred_language: PreferredLanguage;
+  font_style: FontStyle;
 }> {
   const { userId } = await auth();
   if (!userId) {
@@ -51,16 +61,26 @@ export async function saveOnboardingPreferences(
     return { ok: false, error: "You must be signed in to save preferences." };
   }
 
+  if (!isPreferredLanguage(data.preferred_language)) {
+    return { ok: false, error: "Invalid preferred language." };
+  }
+  if (!isFontStyle(data.font_style)) {
+    return { ok: false, error: "Invalid font style." };
+  }
+
   try {
     await getOrCreateUserProfile();
 
     const profile = await updateUserProfile(userId, {
       learning_styles: data.learning_styles,
       neurodivergent_accommodations: data.neurodivergent_accommodations,
+      preferred_language: data.preferred_language,
+      font_style: data.font_style,
     });
 
     revalidatePath("/onboarding");
     revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
 
     return { ok: true, profile };
   } catch (error) {

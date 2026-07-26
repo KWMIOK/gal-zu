@@ -7,6 +7,7 @@ import { Loader2, Sparkles, Sprout } from "lucide-react";
 
 import { createCourseFromPrompt } from "@/app/actions/generation";
 import { PaidDepthGateDialog } from "@/components/billing/paid-depth-gate-dialog";
+import { useT } from "@/components/preferences/learner-prefs-provider";
 import { AnimatedSelect } from "@/components/ui/animated-select";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -25,59 +26,59 @@ import {
   type QuotaSummary,
 } from "@/lib/generation/quota-shared";
 
-const depthOptions: {
-  id: PromptDepth;
-  label: string;
-  hint: string;
-  paid?: boolean;
-}[] = [
-  {
-    id: "quick_answer",
-    label: "Quick answer",
-    hint: "One focused lesson, right now.",
-  },
-  {
-    id: "overview",
-    label: "Overview",
-    hint: "A short guided tour — a few lessons.",
-  },
-  {
-    id: "deep_dive",
-    label: "Deep dive",
-    hint: "A proper multi-module course.",
-    paid: true,
-  },
-  {
-    id: "complete_mastery",
-    label: "Complete mastery",
-    hint: "The full curriculum — as many modules as the topic really needs.",
-    paid: true,
-  },
-];
-
 export function OmniPromptBar({
   initialQuota,
   canUsePaidDepths = false,
 }: {
   initialQuota?: QuotaSummary | null;
-  /** True only for Pro entitlements — never true for guests or free accounts. */
   canUsePaidDepths?: boolean;
 }) {
   const router = useRouter();
   const { isSignedIn } = useAuth();
+  const t = useT();
   const [prompt, setPrompt] = useState("");
   const [depth, setDepth] = useState<PromptDepth | "">("");
   const [error, setError] = useState<string | null>(null);
   const [capReached, setCapReached] = useState(false);
   const [depthLocked, setDepthLocked] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
-  const [gateLabel, setGateLabel] = useState("Deep dive");
+  const [gateLabel, setGateLabel] = useState(t("dashboard.depth.deep_dive"));
   const [pending, startTransition] = useTransition();
+
+  const depthOptions: {
+    id: PromptDepth;
+    label: string;
+    hint: string;
+    paid?: boolean;
+  }[] = [
+    {
+      id: "quick_answer",
+      label: t("dashboard.depth.quick_answer"),
+      hint: t("dashboard.depth.quick_answerHint"),
+    },
+    {
+      id: "overview",
+      label: t("dashboard.depth.overview"),
+      hint: t("dashboard.depth.overviewHint"),
+    },
+    {
+      id: "deep_dive",
+      label: t("dashboard.depth.deep_dive"),
+      hint: t("dashboard.depth.deep_diveHint"),
+      paid: true,
+    },
+    {
+      id: "complete_mastery",
+      label: t("dashboard.depth.complete_mastery"),
+      hint: t("dashboard.depth.complete_masteryHint"),
+      paid: true,
+    },
+  ];
 
   const selectedHint =
     depth === ""
       ? null
-      : depthOptions.find((d) => d.id === depth)?.hint ?? null;
+      : (depthOptions.find((d) => d.id === depth)?.hint ?? null);
 
   function handleDepthChange(id: PromptDepth) {
     const option = depthOptions.find((d) => d.id === id);
@@ -96,13 +97,13 @@ export function OmniPromptBar({
     setDepthLocked(false);
 
     if (!depth) {
-      setError("Choose a depth before starting.");
+      setError(t("dashboard.chooseDepth"));
       return;
     }
 
     if (isPaidPromptDepth(depth) && !canUsePaidDepths) {
       const option = depthOptions.find((d) => d.id === depth);
-      setGateLabel(option?.label ?? "This depth");
+      setGateLabel(option?.label ?? t("dashboard.depth"));
       setGateOpen(true);
       return;
     }
@@ -115,7 +116,7 @@ export function OmniPromptBar({
         router.push(`/courses/${result.courseId}`);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Something went wrong.";
+          err instanceof Error ? err.message : t("common.error");
         if (isCapReachedMessage(message)) {
           setCapReached(true);
           setError(stripCapReachedPrefix(message));
@@ -137,7 +138,7 @@ export function OmniPromptBar({
         <form onSubmit={handleSubmit} className="relative space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              What do you want to learn today?
+              {t("dashboard.placeholder")}
             </label>
             {initialQuota ? (
               <span
@@ -162,7 +163,7 @@ export function OmniPromptBar({
               type="text"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder='Try "1+1", Quantum mechanics, or Japanese greetings…'
+              placeholder={t("dashboard.placeholder")}
               className="flex-1 rounded-xl border border-zinc-200/80 bg-white/80 px-4 py-3 text-zinc-900 shadow-inner outline-none ring-violet-500/30 placeholder:text-zinc-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-50"
               disabled={pending}
             />
@@ -173,11 +174,12 @@ export function OmniPromptBar({
             >
               {pending ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+                  <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                  {t("dashboard.starting")}
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" /> Learn
+                  <Sparkles className="h-4 w-4" /> {t("dashboard.start")}
                 </>
               )}
             </button>
@@ -188,8 +190,9 @@ export function OmniPromptBar({
               value={depth}
               onChange={handleDepthChange}
               disabled={pending}
-              aria-label="Depth"
-              placeholder="Depth"
+              aria-label={t("dashboard.depth")}
+              placeholder={t("dashboard.depth")}
+              keepPlaceholder
               options={depthOptions.map(({ id, label, hint, paid }) => ({
                 value: id,
                 label,
@@ -241,7 +244,7 @@ export function OmniPromptBar({
               <div className="h-2 animate-pulse rounded-full bg-violet-200 dark:bg-violet-900" />
               <div className="h-2 w-4/5 animate-pulse rounded-full bg-violet-200 dark:bg-violet-900" />
               <p className="text-sm text-violet-700 dark:text-violet-300">
-                Creating your course…
+                {t("dashboard.starting")}
               </p>
             </div>
           ) : null}

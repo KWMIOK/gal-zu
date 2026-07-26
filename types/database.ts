@@ -1,3 +1,10 @@
+import type {
+  FontStyle,
+  PreferredLanguage,
+} from "@/lib/preferences/language-font";
+
+export type { FontStyle, PreferredLanguage };
+
 /** Learning modality preferences stored on `user_profiles.learning_styles`. */
 export type LearningStyleKey =
   | "visual"
@@ -258,6 +265,10 @@ export interface UserProfile {
   neurodivergent_accommodations: NeurodivergentAccommodations;
   /** Usage-derived adaptation — see LearningAdaptation. Defaults to empty. */
   learning_adaptation: LearningAdaptation;
+  /** UI + Gemini content language. Default English. */
+  preferred_language: PreferredLanguage;
+  /** Global app + lesson typography. Default Standard Clean (Inter). */
+  font_style: FontStyle;
   /** Defaults to "free" for every user until a RevenueCat webhook says otherwise. */
   plan_tier: PlanTier;
   subscription_status: SubscriptionStatus;
@@ -350,6 +361,8 @@ export type UserProfileInsert = {
   learning_styles?: LearningStyles;
   neurodivergent_accommodations?: NeurodivergentAccommodations;
   learning_adaptation?: LearningAdaptation;
+  preferred_language?: PreferredLanguage;
+  font_style?: FontStyle;
 };
 
 export type UserProfileUpdate = Partial<
@@ -358,6 +371,8 @@ export type UserProfileUpdate = Partial<
     | "learning_styles"
     | "neurodivergent_accommodations"
     | "learning_adaptation"
+    | "preferred_language"
+    | "font_style"
     | "plan_tier"
     | "subscription_status"
     | "subscription_expires_at"
@@ -480,6 +495,11 @@ export const DEFAULT_LEARNING_ADAPTATION: LearningAdaptation = {
   updated_at: null,
 };
 
+export {
+  DEFAULT_FONT_STYLE,
+  DEFAULT_PREFERRED_LANGUAGE,
+} from "@/lib/preferences/language-font";
+
 export type Database = {
   public: {
     Tables: {
@@ -490,6 +510,8 @@ export type Database = {
           learning_styles?: LearningStyles;
           neurodivergent_accommodations?: NeurodivergentAccommodations;
           learning_adaptation?: LearningAdaptation;
+          preferred_language?: PreferredLanguage;
+          font_style?: FontStyle;
           plan_tier?: PlanTier;
           subscription_status?: SubscriptionStatus;
           subscription_expires_at?: string | null;
@@ -503,6 +525,8 @@ export type Database = {
           learning_styles?: LearningStyles;
           neurodivergent_accommodations?: NeurodivergentAccommodations;
           learning_adaptation?: LearningAdaptation;
+          preferred_language?: PreferredLanguage;
+          font_style?: FontStyle;
           plan_tier?: PlanTier;
           subscription_status?: SubscriptionStatus;
           subscription_expires_at?: string | null;

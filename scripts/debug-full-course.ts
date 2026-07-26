@@ -40,6 +40,8 @@ const fakeProfile: UserProfile = {
   learning_styles: DEFAULT_LEARNING_STYLES,
   neurodivergent_accommodations: DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
   learning_adaptation: DEFAULT_LEARNING_ADAPTATION,
+  preferred_language: "en",
+  font_style: "standard_clean",
   plan_tier: "pro",
   subscription_status: "none",
   subscription_expires_at: null,

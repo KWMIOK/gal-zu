@@ -349,6 +349,11 @@ entitlements) are done.
 - `lib/generation/profile-adaptation.ts` — preference → prompt
   directives, slide-range / format picking, and zero-cost
   `learning_adaptation` signal merging (usage-based personalization).
+- `lib/generation/accessibility-rules.ts` — cognitive profile resolution
+  + Gemini system block (includes preferred language + font style).
+- `lib/preferences/language-font.ts`, `lib/i18n/messages.ts`,
+  `components/preferences/learner-prefs-provider.tsx` — UI language +
+  global typography (Inter / OpenDyslexic / Atkinson Hyperlegible).
 - `lib/gemini/schemas.ts`, `lib/gemini/json.ts` — Zod schemas + JSON
   sanitization for Gemini responses.
 - `lib/gemini/lesson-plans.ts` — depth tiers, roadmap scaling, lesson

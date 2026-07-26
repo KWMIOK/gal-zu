@@ -6,9 +6,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/service-role";
 import { normalizeUserProfileRow } from "@/lib/user-profile-normalize";
 import {
+  DEFAULT_FONT_STYLE,
   DEFAULT_LEARNING_ADAPTATION,
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
+  DEFAULT_PREFERRED_LANGUAGE,
   type Course,
   type CourseInsert,
   type CourseUpdate,
@@ -115,6 +117,9 @@ export async function createUserProfile(
       DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
     learning_adaptation:
       input.learning_adaptation ?? DEFAULT_LEARNING_ADAPTATION,
+    preferred_language:
+      input.preferred_language ?? DEFAULT_PREFERRED_LANGUAGE,
+    font_style: input.font_style ?? DEFAULT_FONT_STYLE,
   };
 
   const result = await supabase.from("user_profiles").insert(row).select().single();
@@ -132,6 +137,8 @@ export async function getOrCreateUserProfile(): Promise<UserProfile> {
       learning_styles: normalized.learning_styles,
       neurodivergent_accommodations: normalized.neurodivergent_accommodations,
       learning_adaptation: normalized.learning_adaptation,
+      preferred_language: normalized.preferred_language,
+      font_style: normalized.font_style,
     };
   }
   return createUserProfile({ id: userId });

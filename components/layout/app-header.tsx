@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { SignUpCta } from "@/components/auth/sign-up-cta";
 import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider";
+import { useT } from "@/components/preferences/learner-prefs-provider";
 
 /**
  * Always-visible app chrome: Sign Up for anonymous learners, avatar +
@@ -13,6 +14,7 @@ import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider
  */
 export function AppHeader() {
   const { appearance } = useGalzuClerkAppearance();
+  const t = useT();
 
   return (
     <header className="border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -23,7 +25,7 @@ export function AppHeader() {
         <nav className="flex items-center gap-3 text-sm">
           <Show when="signed-out">
             <SignUpCta className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500">
-              Sign Up
+              {t("nav.signUp")}
             </SignUpCta>
           </Show>
           <Show when="signed-in">
@@ -31,7 +33,7 @@ export function AppHeader() {
               href="/onboarding"
               className="rounded-lg px-3 py-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-violet-600 dark:text-zinc-400 dark:hover:bg-zinc-900"
             >
-              Preferences
+              {t("nav.preferences")}
             </Link>
             <UserButton appearance={appearance} />
           </Show>

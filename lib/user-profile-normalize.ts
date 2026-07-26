@@ -1,12 +1,20 @@
 import {
+  DEFAULT_FONT_STYLE,
   DEFAULT_LEARNING_ADAPTATION,
   DEFAULT_LEARNING_STYLES,
   DEFAULT_NEURODIVERGENT_ACCOMMODATIONS,
+  DEFAULT_PREFERRED_LANGUAGE,
+  type FontStyle,
   type LearningAdaptation,
   type LearningStyles,
   type NeurodivergentAccommodations,
+  type PreferredLanguage,
   type UserProfile,
 } from "@/types/database";
+import {
+  isFontStyle,
+  isPreferredLanguage,
+} from "@/lib/preferences/language-font";
 
 export function normalizeLearningStyles(
   raw: Partial<LearningStyles> | null | undefined,
@@ -46,18 +54,32 @@ export function normalizeLearningAdaptation(
   };
 }
 
+export function normalizePreferredLanguage(
+  raw: unknown,
+): PreferredLanguage {
+  return isPreferredLanguage(raw) ? raw : DEFAULT_PREFERRED_LANGUAGE;
+}
+
+export function normalizeFontStyle(raw: unknown): FontStyle {
+  return isFontStyle(raw) ? raw : DEFAULT_FONT_STYLE;
+}
+
 export function normalizeUserProfileRow(
   profile: UserProfile | null,
 ): {
   learning_styles: LearningStyles;
   neurodivergent_accommodations: NeurodivergentAccommodations;
   learning_adaptation: LearningAdaptation;
+  preferred_language: PreferredLanguage;
+  font_style: FontStyle;
 } {
   if (!profile) {
     return {
       learning_styles: { ...DEFAULT_LEARNING_STYLES },
       neurodivergent_accommodations: { ...DEFAULT_NEURODIVERGENT_ACCOMMODATIONS },
       learning_adaptation: { ...DEFAULT_LEARNING_ADAPTATION },
+      preferred_language: DEFAULT_PREFERRED_LANGUAGE,
+      font_style: DEFAULT_FONT_STYLE,
     };
   }
 
@@ -67,6 +89,8 @@ export function normalizeUserProfileRow(
       profile.neurodivergent_accommodations,
     ),
     learning_adaptation: normalizeLearningAdaptation(profile.learning_adaptation),
+    preferred_language: normalizePreferredLanguage(profile.preferred_language),
+    font_style: normalizeFontStyle(profile.font_style),
   };
 }
 
@@ -74,8 +98,12 @@ export function normalizeUserProfileRow(
 export function profilePreferenceSummary(
   profile: UserProfile | null,
 ): string[] {
-  const { learning_styles: ls, neurodivergent_accommodations: nd } =
-    normalizeUserProfileRow(profile);
+  const {
+    learning_styles: ls,
+    neurodivergent_accommodations: nd,
+    preferred_language,
+    font_style,
+  } = normalizeUserProfileRow(profile);
   const bits: string[] = [];
 
   const styles = (
@@ -88,6 +116,8 @@ export function profilePreferenceSummary(
   ).filter(Boolean);
   if (styles.length) bits.push(`Styles: ${styles.join(", ")}`);
   if (ls.preferred_pace) bits.push(`Pace: ${ls.preferred_pace}`);
+  bits.push(`Language: ${preferred_language}`);
+  bits.push(`Font: ${font_style}`);
 
   if (nd.adhd.enabled) bits.push("ADHD micro-learning");
   if (nd.dyscalculia.enabled) bits.push("Dyscalculia supports");

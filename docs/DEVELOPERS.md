@@ -164,6 +164,7 @@ flowchart TB
 | Server → Gemini | `@google/genai` `generateContent` / structured JSON helpers |
 | Clerk → Supabase | JWT template (`CLERK_SUPABASE_JWT_TEMPLATE`) for RLS `auth.jwt()` claims |
 | Native Google → Clerk | Capgo ID token → Server Action verifies → Clerk sign-in ticket |
+| Preferences → Gemini | Cognitive profile block (styles, pace, accessibilities, **language**, **font**) |
 | RevenueCat → app | HTTPS webhook → service-role profile entitlement update |
 
 ---

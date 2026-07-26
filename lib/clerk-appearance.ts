@@ -14,9 +14,9 @@ const sharedOptions = {
 
 const sharedFonts = {
   borderRadius: "0.75rem",
-  fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+  fontFamily: "var(--font-learner), ui-sans-serif, system-ui, sans-serif",
   fontFamilyButtons:
-    "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+    "var(--font-learner), ui-sans-serif, system-ui, sans-serif",
   fontSize: "0.875rem",
 };
 

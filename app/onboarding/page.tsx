@@ -15,14 +15,20 @@ export default async function OnboardingPage() {
     profile = await getUserProfile(userId);
   }
 
-  const { learning_styles, neurodivergent_accommodations } =
-    normalizeUserProfileRow(profile);
+  const {
+    learning_styles,
+    neurodivergent_accommodations,
+    preferred_language,
+    font_style,
+  } = normalizeUserProfileRow(profile);
 
   return (
     <OnboardingWizard
       mode="settings"
       initialLearningStyles={learning_styles}
       initialAccommodations={neurodivergent_accommodations}
+      initialPreferredLanguage={preferred_language}
+      initialFontStyle={font_style}
     />
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "@/components/lessons/markdown-viewers";
 import { QuizViewer } from "@/components/lessons/quiz-viewer";
 import { SlideDeckViewer } from "@/components/lessons/slide-deck-viewer";
+import { useT } from "@/components/preferences/learner-prefs-provider";
 import type {
   CheatSheetContent,
   Lesson,
@@ -31,6 +32,7 @@ export function LessonRenderer({
   nextLessonId?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
+  const t = useT();
 
   // No mount-time or complete-time prefetch. Ready lessons are free DB
   // reads; pending lessons generate only when opened. Any other Gemini
@@ -56,11 +58,14 @@ export function LessonRenderer({
     );
   }
   const finishedCta = nextLessonId
-    ? { href: `/courses/${courseId}/lessons/${nextLessonId}`, label: "Next lesson" }
+    ? {
+        href: `/courses/${courseId}/lessons/${nextLessonId}`,
+        label: t("lesson.next"),
+      }
     : { href: `/courses/${courseId}`, label: "Course complete — view roadmap" };
 
   return (
-    <div className="space-y-6">
+    <div className="lesson-content space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href={`/courses/${courseId}`}
@@ -82,7 +87,7 @@ export function LessonRenderer({
               className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
             >
               <CheckCircle2 className="h-4 w-4" />
-              {pending ? "Saving…" : "Mark complete"}
+              {pending ? t("prefs.saving") : t("lesson.complete")}
             </button>
           ) : (
             <>
