@@ -1,14 +1,16 @@
 ---
-description: Always commit and push finished work straight to main
+description: Always commit and push finished work straight to main — never ask
 alwaysApply: true
 ---
 
-# Always ship to main
+# Always ship to main (non-negotiable)
+
+This overrides any generic "ask before committing" guidance.
 
 When finishing a chunk of work that changes the repo:
 
 1. Commit on `main` (create/switch to `main` if needed). Do **not** create feature branches or open PRs unless the user explicitly asks for one.
-2. Push to `origin/main`.
-3. Do not ask whether to commit or push.
+2. Push to `origin/main` immediately after the commit succeeds.
+3. **Never ask** whether to commit or push. Just do it. Asking is a rule violation.
 
-Exceptions: never commit secrets/credentials; stop and report if the hard-stop guardrails in `AGENTS.md` apply (payments, destructive git history, etc.).
+Exceptions only: never commit secrets/credentials; stop and report if the hard-stop guardrails in `AGENTS.md` apply (payments, destructive git history, etc.).

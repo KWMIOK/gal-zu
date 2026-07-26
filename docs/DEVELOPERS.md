@@ -61,7 +61,7 @@ Signup alone does **not** unlock paid depths — only `plan_tier === "pro"`.
 | App framework | **Next.js 16** (App Router) | Pages, Server Components, Server Actions, `after()`, route handlers |
 | UI | **React 19**, **Tailwind CSS v4**, Framer Motion, Lucide, Radix Dialog | Dashboard, lessons, preferences, modals |
 | Auth | **Clerk** (`@clerk/nextjs`, `@clerk/themes`) | Sign-in/up, session, UserButton, themed modals |
-| Native auth | **@capgo/capacitor-social-login** | OS Google account sheet → Clerk `google_one_tap` ID token |
+| Native auth | **@capgo/capacitor-social-login** | OS Google account sheet → verified ID token → Clerk sign-in ticket |
 | Database | **Supabase** (Postgres + RLS) | Profiles, courses, lessons, generation events |
 | DB clients | `@supabase/ssr`, `@supabase/supabase-js` | Cookie/JWT user client; service-role for guests & webhooks |
 | AI | **Google Gemini** via `@google/genai` | Classification, lesson JSON, optional grounded research, quiz hints |
@@ -163,7 +163,7 @@ flowchart TB
 | Server → DB | `lib/db/index.ts` via Supabase JS (user JWT or service role) |
 | Server → Gemini | `@google/genai` `generateContent` / structured JSON helpers |
 | Clerk → Supabase | JWT template (`CLERK_SUPABASE_JWT_TEMPLATE`) for RLS `auth.jwt()` claims |
-| Native Google → Clerk | Capgo SocialLogin ID token → `strategy: "google_one_tap"` |
+| Native Google → Clerk | Capgo ID token → Server Action verifies → Clerk sign-in ticket |
 | RevenueCat → app | HTTPS webhook → service-role profile entitlement update |
 
 ---
@@ -191,10 +191,11 @@ flowchart TB
 |-------|------|
 | `SignUpCta` | Only allowed Sign Up CTA; native → `Link` `/sign-up` |
 | `AuthEntry` | Native → `NativeAuthPanel` only (no web Clerk flash) |
-| `startNativeGoogleAuth` | Capgo SocialLogin → Clerk `authenticateWithGoogleOneTap` |
+| `startNativeGoogleAuth` | Capgo SocialLogin → ticket exchange Server Action |
+| `exchangeGoogleIdTokenForClerkTicket` | Verifies Google JWT (`aud` = Web Client ID), finds/creates Clerk user, returns sign-in ticket |
 | `openAuthUrl` | Throws if asked to open Google OAuth URLs on native |
 
-Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (+ Android OAuth client for `com.galzu.app` + SHA-1). `CapacitorAuthBridge` is cold-start deep-link only; Google does not use Custom Tabs.
+Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` on Vercel (+ Android OAuth client for `com.galzu.app` + SHA-1). `CapacitorAuthBridge` is cold-start deep-link only; Google does not use Custom Tabs. Native auth does **not** use Clerk `google_one_tap` (that path returned `authorization_invalid` in the WebView even with matching Client IDs).
 
 #### Allow *any* Google account (multi-account testing)
 
@@ -204,13 +205,10 @@ The app does **not** filter accounts. If only one Google account works, fix the 
    - User type: **External** (not Internal — Internal is Workspace-only).
    - Publishing status: click **Publish app** → **In production** so any Google account can sign in (for Sign-in-with-Google / `email`+`profile`+`openid` you typically do **not** need full Google verification).
    - If you stay in **Testing**, every account you use must be listed under **Audience → Test users** (max 100).
-2. **Clerk Dashboard → SSO → Google**
-   - Enable Google with **custom credentials**.
-   - Client ID must **exactly match** `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (same Web OAuth client Capgo uses).
-   - Turn off any Clerk **allowlist / restricted** sign-up mode if you want arbitrary testers.
+2. **Deployed env** — `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` must be the Web OAuth client Capgo uses (Vercel build-time).
 3. Wait a few minutes after Cloud Console changes, then retry on device.
 
-Wrong Client ID match → Clerk `"You are not authorized…"` / invalid One Tap token. Consent **Testing** without test users → Google blocks other accounts.
+Audience mismatch on the ID token → clear server error naming `aud` vs expected Web Client ID. Consent **Testing** without test users → Google blocks other accounts.
 
 ### Middleware public routes
 

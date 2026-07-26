@@ -127,10 +127,13 @@ agent and OpenAI Codex CLI). There's no live channel between agents —
 coordination happens through **this file** (shared instructions/context)
 and **git** (shared history). Follow this workflow:
 
-- **Never commit straight to `main`** when another agent might be active
-  at the same time. Create a branch (`codex/<short-desc>` or
-  `cursor/<short-desc>`), commit there, and open a PR for review before
-  merging — even if you're going to self-review it.
+- **Cursor ships straight to `main`.** Per `.cursor/rules/always-ship-prs.mdc`
+  and the user's standing preference: commit on `main`, push to
+  `origin/main`, and **never ask** whether to commit/push. Do not open
+  PRs or feature branches unless the user explicitly requests one.
+  (Codex may still use `codex/<short-desc>` branches if coordinating
+  around Cursor; check recent `git log` / branches first so you don't
+  stomp in-flight work.)
 - Before starting work, run `git log --all --oneline -20` and
   `git branch -a` to see what the other agent has done recently or has
   in flight, so you don't duplicate or conflict with it.
@@ -325,16 +328,19 @@ entitlements) are done.
   (`AuthEntry` must not flash web Clerk for even one frame). Google uses
   `startNativeGoogleAuth` (`lib/capacitor/native-oauth.ts`):
   `@capgo/capacitor-social-login` opens the OS account sheet (Android
-  Credential Manager bottom sheet / iOS Google Sign-In), then Clerk
-  `authenticateWithGoogleOneTap({ token })` + `setActive` (do **not** use
-  `signIn.create({ strategy: 'google_one_tap' })` — that returns
-  `authorization_invalid` / "not authorized" for many existing accounts).
-  Clerk → SSO → Google must use **custom** credentials whose Web Client ID
-  matches `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` exactly (token `aud`). Requires
-  that Web client plus an Android OAuth client for `com.galzu.app` + signing
-  SHA-1 in the same Cloud project. `openAuthUrl` throws if asked to open a
-  Google OAuth URL on native. `CapacitorAuthBridge` remains only as a
-  cold-start deep-link safety net; Google no longer uses Custom Tabs.
+  Credential Manager bottom sheet / iOS Google Sign-In), then
+  `exchangeGoogleIdTokenForClerkTicket` (`app/actions/native-google-auth.ts`)
+  verifies the Google ID token server-side and mints a Clerk sign-in
+  ticket; the client finishes with `signIn.create({ strategy: 'ticket' })`
+  + `setActive`. Do **not** use `authenticateWithGoogleOneTap` /
+  `google_one_tap` in the Capacitor WebView — it returns
+  `authorization_invalid` even when Clerk SSO Client IDs match. Token
+  `aud` must equal `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (set on Vercel).
+  Requires that Web client plus an Android OAuth client for
+  `com.galzu.app` + signing SHA-1 in the same Cloud project. `openAuthUrl`
+  throws if asked to open a Google OAuth URL on native.
+  `CapacitorAuthBridge` remains only as a cold-start deep-link safety net;
+  Google no longer uses Custom Tabs.
 
 ## Where things live
 

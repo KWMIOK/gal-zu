@@ -4,6 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
 import type { useClerk } from "@clerk/nextjs";
 
+import { exchangeGoogleIdTokenForClerkTicket } from "@/app/actions/native-google-auth";
 import { isNativePlatform } from "@/lib/capacitor/is-native";
 
 /** Kept for CapacitorAuthBridge cold-start deep links (legacy / other SSO). */
@@ -35,7 +36,7 @@ function getGoogleWebClientId(): string {
     throw new Error(
       "Missing NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID. Use the Google Cloud " +
         "*Web application* OAuth client ID (same project as your Android/iOS " +
-        "clients — must match Clerk → SSO → Google custom credentials).",
+        "clients). Must also be set on Vercel for the hosted Capacitor app.",
     );
   }
   return id;
@@ -69,30 +70,12 @@ function clerkErrorMessage(err: unknown): string {
   const first = errors?.[0] as
     | { longMessage?: string; message?: string; code?: string }
     | undefined;
-  const raw =
+  return (
     first?.longMessage ||
     first?.message ||
     ("message" in err && typeof err.message === "string" ? err.message : null) ||
-    "Google sign-in failed.";
-
-  const code = first?.code ?? "";
-  if (
-    code === "authorization_invalid" ||
-    /not authorized to perform this request/i.test(raw)
-  ) {
-    return (
-      `${raw} Check Clerk Dashboard → SSO → Google: use *custom* credentials ` +
-      `whose Web Client ID exactly matches NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID ` +
-      `(the same Web OAuth client Capgo uses for the ID token).`
-    );
-  }
-  if (code === "google_one_tap_token_invalid") {
-    return (
-      `${raw} The Google ID token audience must be your Web Client ID, and ` +
-      `that same ID must be configured in Clerk's Google SSO custom credentials.`
-    );
-  }
-  return raw;
+    "Google sign-in failed."
+  );
 }
 
 async function ensureGoogleInitialized(): Promise<void> {
@@ -117,22 +100,22 @@ async function ensureGoogleInitialized(): Promise<void> {
  * Fully browser-free Google sign-in for Capacitor.
  *
  * 1. OS account sheet via Capgo SocialLogin (never Chrome)
- * 2. Exchange ID token with Clerk via `authenticateWithGoogleOneTap`
- *    (not `signIn.create({ strategy: "google_one_tap" })` — that path returns
- *    authorization_invalid for many existing accounts)
- * 3. Activate the session / finish any remaining One Tap callback steps
+ * 2. Server verifies the Google ID token and mints a Clerk sign-in ticket
+ *    (avoids `authenticateWithGoogleOneTap`, which returns authorization_invalid
+ *    in the Capacitor WebView even when SSO Client IDs match)
+ * 3. Client completes with `strategy: "ticket"` and activates the session
  */
 export async function startNativeGoogleAuth({
   clerk,
-  afterSignInUrl,
-  afterSignUpUrl,
+  afterSignInUrl: _afterSignInUrl,
+  afterSignUpUrl: _afterSignUpUrl,
 }: StartNativeGoogleAuthParams): Promise<{ createdSessionId: string | null }> {
   if (!isNativePlatform()) {
     throw new Error("startNativeGoogleAuth is only for the Capacitor shell.");
   }
 
-  if (!clerk.authenticateWithGoogleOneTap || !clerk.setActive) {
-    throw new Error("Clerk is not ready for Google One Tap authentication.");
+  if (!clerk.client?.signIn || !clerk.setActive) {
+    throw new Error("Clerk is not ready for native Google authentication.");
   }
 
   await ensureGoogleInitialized();
@@ -165,31 +148,24 @@ export async function startNativeGoogleAuth({
     throw err;
   }
 
+  const exchange = await exchangeGoogleIdTokenForClerkTicket(idToken);
+  if (!exchange.ok) {
+    throw new Error(exchange.error);
+  }
+
   try {
-    const signInOrUp = await clerk.authenticateWithGoogleOneTap({
-      token: idToken,
+    const signInAttempt = await clerk.client.signIn.create({
+      strategy: "ticket",
+      ticket: exchange.ticket,
     });
 
-    if (signInOrUp.status === "complete" && signInOrUp.createdSessionId) {
-      await clerk.setActive({ session: signInOrUp.createdSessionId });
-      return { createdSessionId: signInOrUp.createdSessionId };
-    }
-
-    // Incomplete flows (e.g. missing fields) — let Clerk finish + navigate.
-    if (clerk.handleGoogleOneTapCallback) {
-      await clerk.handleGoogleOneTapCallback(signInOrUp, {
-        signInForceRedirectUrl: afterSignInUrl,
-        signUpForceRedirectUrl: afterSignUpUrl,
-        signInFallbackRedirectUrl: afterSignInUrl,
-        signUpFallbackRedirectUrl: afterSignUpUrl,
-      });
-      return {
-        createdSessionId: signInOrUp.createdSessionId ?? null,
-      };
+    if (signInAttempt.status === "complete" && signInAttempt.createdSessionId) {
+      await clerk.setActive({ session: signInAttempt.createdSessionId });
+      return { createdSessionId: signInAttempt.createdSessionId };
     }
 
     throw new Error(
-      "Google sign-in did not complete. Try again or finish any required steps.",
+      `Google sign-in did not complete (status: ${signInAttempt.status}).`,
     );
   } catch (err) {
     throw new Error(clerkErrorMessage(err));
