@@ -25,6 +25,10 @@ export function normalizeNeurodivergentAccommodations(
     adhd: { ...base.adhd, ...(raw?.adhd ?? {}) },
     dyscalculia: { ...base.dyscalculia, ...(raw?.dyscalculia ?? {}) },
     math_anxiety: { ...base.math_anxiety, ...(raw?.math_anxiety ?? {}) },
+    dyslexia: { ...base.dyslexia, ...(raw?.dyslexia ?? {}) },
+    dysgraphia: { ...base.dysgraphia, ...(raw?.dysgraphia ?? {}) },
+    nvld: { ...base.nvld, ...(raw?.nvld ?? {}) },
+    apd: { ...base.apd, ...(raw?.apd ?? {}) },
   };
 }
 
@@ -88,6 +92,10 @@ export function profilePreferenceSummary(
   if (nd.adhd.enabled) bits.push("ADHD micro-learning");
   if (nd.dyscalculia.enabled) bits.push("Dyscalculia supports");
   if (nd.math_anxiety.enabled) bits.push("Low-pressure math mode");
+  if (nd.dyslexia.enabled) bits.push("Dyslexia reading supports");
+  if (nd.dysgraphia.enabled) bits.push("Dysgraphia writing supports");
+  if (nd.nvld.enabled) bits.push("NVLD supports");
+  if (nd.apd.enabled) bits.push("APD supports");
 
   const adapt = normalizeLearningAdaptation(profile?.learning_adaptation);
   if (adapt.lessons_completed >= 3) {

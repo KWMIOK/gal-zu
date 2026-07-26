@@ -12,7 +12,8 @@ export type LearningSignal =
 /**
  * Concrete, actionable profile instructions for Gemini — not a boolean dump.
  * Accommodations are gated on `*.enabled` only (sub-flags alone must never
- * activate a whole accommodation category).
+ * activate a whole accommodation category). Every enabled style, pace, and
+ * accommodation must produce visible differences in generated lessons.
  */
 export function buildProfileAdaptationInstructions(profile: UserProfile): string {
   const ls = profile.learning_styles;
@@ -31,9 +32,15 @@ export function buildProfileAdaptationInstructions(profile: UserProfile): string
   }
   if (ls.auditory) {
     activeStyles.push("auditory");
-    lines.push(
-      "- AUDITORY: write `spoken_narration` as a natural spoken script (complete sentences, spoken rhythm), slightly longer than on-screen text; include pronunciation guidance where relevant.",
-    );
+    if (nd.apd.enabled) {
+      lines.push(
+        "- AUDITORY (with APD): still provide `spoken_narration`, but keep it slow/clear and ALWAYS mirror the same points in on-screen text — never rely on audio alone.",
+      );
+    } else {
+      lines.push(
+        "- AUDITORY: write `spoken_narration` as a natural spoken script (complete sentences, spoken rhythm), slightly longer than on-screen text; include pronunciation guidance where relevant.",
+      );
+    }
   }
   if (ls.hands_on) {
     activeStyles.push("hands-on");
@@ -43,9 +50,19 @@ export function buildProfileAdaptationInstructions(profile: UserProfile): string
   }
   if (ls.reading_writing) {
     activeStyles.push("reading/writing");
-    lines.push(
-      "- READING/WRITING: denser precise definitions, short worked examples the learner could rewrite from memory, and a clear takeaway sentence per slide.",
-    );
+    if (nd.dysgraphia.enabled) {
+      lines.push(
+        "- READING/WRITING (with dysgraphia): keep precise definitions and short examples, but NEVER ask the learner to rewrite, copy long passages, or produce free-form writing — use selection/match practice instead.",
+      );
+    } else if (nd.dyslexia.enabled) {
+      lines.push(
+        "- READING/WRITING (with dyslexia): keep definitions precise but short; prefer bullet takeaways over long paragraphs; add phonetic guides for new terms.",
+      );
+    } else {
+      lines.push(
+        "- READING/WRITING: denser precise definitions, short worked examples the learner could rewrite from memory, and a clear takeaway sentence per slide.",
+      );
+    }
   }
   if (activeStyles.length === 0) {
     lines.push(
@@ -68,19 +85,54 @@ export function buildProfileAdaptationInstructions(profile: UserProfile): string
     lines.push("- PACE moderate: clear progression without rushing or over-explaining.");
   }
 
+  const activeAccommodations: string[] = [];
+
   if (nd.adhd.enabled) {
+    activeAccommodations.push("ADHD");
     lines.push(
       "- ADHD / micro-learning: VERY short chunks, one idea per slide, scannable bullets (3–5 max), bold the key term, optional break prompt in a callout every few slides. Prefer bite-sized module titles in roadmaps.",
     );
   }
   if (nd.dyscalculia.enabled) {
+    activeAccommodations.push("dyscalculia");
     lines.push(
       "- DYSCALCULIA: step-by-step math only, visual metaphors for quantities, mention color-coded numbers in `visual_hint` when numbers appear; avoid mixed fraction notation when possible.",
     );
   }
   if (nd.math_anxiety.enabled) {
+    activeAccommodations.push("math anxiety");
     lines.push(
       "- MATH ANXIETY: warm encouraging tone, no pressure/timer language, gentle progression, celebrate small wins in callouts; never shame mistakes.",
+    );
+  }
+  if (nd.dyslexia.enabled) {
+    activeAccommodations.push("dyslexia");
+    lines.push(
+      "- DYSLEXIA (disorders of reading): short sentences, high-frequency words where possible, generous spacing via bullets (not walls of text), phonetic pronunciation for new terms, strong `visual_hint` pairing with every key idea, avoid dense multi-clause paragraphs.",
+    );
+  }
+  if (nd.dysgraphia.enabled) {
+    activeAccommodations.push("dysgraphia");
+    lines.push(
+      "- DYSGRAPHIA (disorders of written expression): minimize any writing/copying demand; prefer multiple_choice / match_pairs widgets; show models/examples instead of asking the learner to compose text; keep on-screen text selectable/readable, not handwriting-oriented.",
+    );
+  }
+  if (nd.nvld.enabled) {
+    activeAccommodations.push("NVLD");
+    lines.push(
+      "- NVLD (nonverbal learning disability): spell out meaning in plain explicit language — do not rely on diagrams alone; explain spatial/visual figures in words; avoid sarcasm, idioms, and vague figurative metaphors; number the steps of every procedure.",
+    );
+  }
+  if (nd.apd.enabled) {
+    activeAccommodations.push("APD");
+    lines.push(
+      "- APD (auditory processing disorder): put the full teaching point in on-screen text first; `spoken_narration` must be slow, clear, and redundant with the text (never introduce critical info only in audio); avoid rapid lists spoken without matching bullets.",
+    );
+  }
+
+  if (activeAccommodations.length > 0) {
+    lines.push(
+      `- Active accommodations (ALL must visibly shape this output): ${activeAccommodations.join(", ")}.`,
     );
   }
 
@@ -120,7 +172,7 @@ export function buildProfileAdaptationInstructions(profile: UserProfile): string
   }
 
   lines.push(
-    "HARD RULE: the resulting lesson/roadmap must look different for this profile than for a learner with opposite styles/pace — never ignore the bullets above.",
+    "HARD RULE: every style, pace, and accommodation bullet above is mandatory — the resulting lesson/roadmap must look different for this profile than for a learner with opposite preferences. Never silently ignore any listed item.",
   );
 
   return lines.join("\n");
@@ -139,20 +191,32 @@ export function adjustSlideRangeForProfile(
   if (nd.adhd.enabled || nd.adhd.micro_learning_mode || chunk === "micro") {
     min = Math.max(3, min - 2);
     max = Math.max(min, max - 2);
-  } else if (pace === "slow" || chunk === "short") {
+  } else if (
+    pace === "slow" ||
+    chunk === "short" ||
+    nd.dyslexia.enabled ||
+    nd.math_anxiety.enabled
+  ) {
+    // More / shorter conceptual beats for reading supports & low-pressure math.
     min = Math.max(4, min - 1);
-    max = Math.max(min, max - 1);
-  } else if (pace === "fast") {
+    max = Math.max(min, max + 1);
+  } else if (pace === "fast" && !nd.apd.enabled && !nd.nvld.enabled) {
     min = min + 1;
     max = max + 1;
   }
 
-  return { min, max };
+  if (nd.nvld.enabled || nd.apd.enabled) {
+    // Extra room for explicit verbal/written reinforcement slides.
+    max = max + 1;
+  }
+
+  return { min, max: Math.max(min, max) };
 }
 
 /**
- * Pick lesson formats from style prefs so a hands-on learner doesn't get
- * an identical all-slideshow course to a reading/writing learner.
+ * Pick lesson formats from style prefs + accommodations so a hands-on
+ * learner (or dysgraphia / APD profile) doesn't get an identical course
+ * shape to someone with opposite needs.
  */
 export function pickLessonFormatsForModule(
   lessonsInModule: number,
@@ -160,31 +224,45 @@ export function pickLessonFormatsForModule(
   fallback: LessonFormat = "slideshow",
 ): LessonFormat[] {
   const ls = profile.learning_styles;
+  const nd = profile.neurodivergent_accommodations;
   const adapt = profile.learning_adaptation ?? DEFAULT_LEARNING_ADAPTATION;
   const formats: LessonFormat[] = [];
 
-  // Affinity tips the scale when declared styles are tied/empty.
   const handsOn =
-    ls.hands_on || adapt.style_affinity.hands_on >= 0.4;
+    ls.hands_on || adapt.style_affinity.hands_on >= 0.4 || nd.dysgraphia.enabled;
   const auditory =
-    ls.auditory || adapt.style_affinity.auditory >= 0.4;
+    (ls.auditory || adapt.style_affinity.auditory >= 0.4) && !nd.apd.enabled;
   const reading =
-    ls.reading_writing || adapt.style_affinity.reading_writing >= 0.4;
+    (ls.reading_writing || adapt.style_affinity.reading_writing >= 0.4) &&
+    !nd.dysgraphia.enabled &&
+    !nd.dyslexia.enabled;
+  const preferExplicitVerbal = nd.nvld.enabled;
 
   if (lessonsInModule <= 1) {
-    if (handsOn && !ls.visual && !reading) return ["quiz"];
+    if (nd.dysgraphia.enabled || (handsOn && !ls.visual && !reading)) {
+      return ["quiz"];
+    }
+    if (nd.apd.enabled || nd.dyslexia.enabled) return ["slideshow"];
+    if (preferExplicitVerbal && !ls.visual) return ["script"];
     if (auditory && !ls.visual && !reading && !handsOn) return ["script"];
     if (reading && !ls.visual && !handsOn) return ["cheat_sheet"];
     return [fallback];
   }
 
-  // Lesson 1: foundations slideshow (or script if strongly auditory-only).
-  formats.push(auditory && !ls.visual && !reading ? "script" : "slideshow");
+  // Lesson 1: foundations — APD/dyslexia stay on slideshow with strong text;
+  // NVLD may lean script for explicit verbal instruction.
+  if (nd.apd.enabled || nd.dyslexia.enabled) {
+    formats.push("slideshow");
+  } else if (preferExplicitVerbal && auditory) {
+    formats.push("script");
+  } else {
+    formats.push(auditory && !ls.visual && !reading ? "script" : "slideshow");
+  }
 
-  // Lesson 2: practice modality matched to style.
-  if (handsOn) formats.push("quiz");
+  // Lesson 2: practice modality matched to style + accommodations.
+  if (nd.dysgraphia.enabled || handsOn) formats.push("quiz");
   else if (reading) formats.push("cheat_sheet");
-  else if (auditory) formats.push("script");
+  else if (auditory && !nd.apd.enabled) formats.push("script");
   else formats.push("slideshow");
 
   while (formats.length < lessonsInModule) {

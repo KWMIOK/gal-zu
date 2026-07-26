@@ -442,6 +442,10 @@ PROFILE-SHAPED ROADMAP (mandatory when profile asks for it):
 - Hands-on learners: first_lesson.format should prefer "quiz" or a practice-heavy slideshow topic.
 - Auditory learners: first_lesson.format may be "script" when a spoken lesson fits the topic.
 - Reading/writing learners: first_lesson.format may be "cheat_sheet" when a dense reference fits.
+- Dyslexia: keep module titles short/plain; avoid dense reading-heavy cheat_sheet as first_lesson.
+- Dysgraphia: prefer "quiz" / selection practice over writing-heavy cheat_sheet formats.
+- NVLD: favor modules with explicit verbal/stepwise descriptions; do not rely on visual-only titles.
+- APD: prefer slideshow (strong on-screen text) over script-only first lessons.
 ${buildProfileAdaptationInstructions(profile)}`;
 
   const userPrompt = [

@@ -162,7 +162,7 @@ export function OnboardingWizard({
           <ToggleRow
             label="ADHD micro-learning mode"
             description="Shorter slides, fewer distractions, break prompts."
-            checked={accommodations.adhd.micro_learning_mode}
+            checked={accommodations.adhd.enabled}
             onChange={(checked) => {
               setSaved(false);
               setAccommodations((prev) => ({
@@ -171,15 +171,17 @@ export function OnboardingWizard({
                   ...prev.adhd,
                   enabled: checked,
                   micro_learning_mode: checked,
+                  frequent_break_prompts: checked,
+                  reduced_distractions: checked,
                 },
               }));
             }}
           />
 
           <ToggleRow
-            label="Dyscalculia color-coded numbers"
-            description="Visual math aids and step-by-step breakdowns."
-            checked={accommodations.dyscalculia.color_coded_numbers ?? false}
+            label="Dyscalculia supports"
+            description="Visual math aids, step-by-step breakdowns, color-coded numbers."
+            checked={accommodations.dyscalculia.enabled}
             onChange={(checked) => {
               setSaved(false);
               setAccommodations((prev) => ({
@@ -190,6 +192,7 @@ export function OnboardingWizard({
                   visual_math_aids: checked,
                   step_by_step_breakdown: checked,
                   color_coded_numbers: checked,
+                  avoid_mixed_fraction_notation: checked,
                 },
               }));
             }}
@@ -209,6 +212,79 @@ export function OnboardingWizard({
                   gentle_progression: checked,
                   hide_timers: checked,
                   encouragement_prompts: checked,
+                },
+              }));
+            }}
+          />
+
+          <ToggleRow
+            label="Disorders of Reading (Dyslexia)"
+            description="Shorter sentences, spaced layout, phonetic guides, strong visuals."
+            checked={accommodations.dyslexia.enabled}
+            onChange={(checked) => {
+              setSaved(false);
+              setAccommodations((prev) => ({
+                ...prev,
+                dyslexia: {
+                  ...prev.dyslexia,
+                  enabled: checked,
+                  simplified_language: checked,
+                  spaced_layout: checked,
+                  phonetic_supports: checked,
+                },
+              }));
+            }}
+          />
+
+          <ToggleRow
+            label="Disorders of Written Expression (Dysgraphia)"
+            description="Less writing load — prefer selection and matching practice."
+            checked={accommodations.dysgraphia.enabled}
+            onChange={(checked) => {
+              setSaved(false);
+              setAccommodations((prev) => ({
+                ...prev,
+                dysgraphia: {
+                  ...prev.dysgraphia,
+                  enabled: checked,
+                  minimize_writing_load: checked,
+                  prefer_selection_tasks: checked,
+                },
+              }));
+            }}
+          />
+
+          <ToggleRow
+            label="Nonverbal Learning Disability (NVLD)"
+            description="Explicit verbal steps; less figurative or diagram-only teaching."
+            checked={accommodations.nvld.enabled}
+            onChange={(checked) => {
+              setSaved(false);
+              setAccommodations((prev) => ({
+                ...prev,
+                nvld: {
+                  ...prev.nvld,
+                  enabled: checked,
+                  explicit_verbal_instruction: checked,
+                  reduce_figurative_language: checked,
+                },
+              }));
+            }}
+          />
+
+          <ToggleRow
+            label="Auditory Processing Disorder (APD)"
+            description="Full on-screen text; slow, clear narration that matches the slides."
+            checked={accommodations.apd.enabled}
+            onChange={(checked) => {
+              setSaved(false);
+              setAccommodations((prev) => ({
+                ...prev,
+                apd: {
+                  ...prev.apd,
+                  enabled: checked,
+                  written_reinforcement: checked,
+                  slow_clear_narration: checked,
                 },
               }));
             }}

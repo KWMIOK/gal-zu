@@ -42,10 +42,43 @@ export interface MathAnxietyAccommodations {
   optional_hints_default?: boolean;
 }
 
+/** Reading supports for dyslexia (disorders of reading). */
+export interface DyslexiaAccommodations {
+  enabled: boolean;
+  simplified_language: boolean;
+  spaced_layout: boolean;
+  phonetic_supports: boolean;
+}
+
+/** Written-expression supports for dysgraphia. */
+export interface DysgraphiaAccommodations {
+  enabled: boolean;
+  minimize_writing_load: boolean;
+  prefer_selection_tasks: boolean;
+}
+
+/** Supports for nonverbal learning disability (NVLD). */
+export interface NvldAccommodations {
+  enabled: boolean;
+  explicit_verbal_instruction: boolean;
+  reduce_figurative_language: boolean;
+}
+
+/** Supports for auditory processing disorder (APD). */
+export interface ApdAccommodations {
+  enabled: boolean;
+  written_reinforcement: boolean;
+  slow_clear_narration: boolean;
+}
+
 export interface NeurodivergentAccommodations {
   adhd: AdhdAccommodations;
   dyscalculia: DyscalculiaAccommodations;
   math_anxiety: MathAnxietyAccommodations;
+  dyslexia: DyslexiaAccommodations;
+  dysgraphia: DysgraphiaAccommodations;
+  nvld: NvldAccommodations;
+  apd: ApdAccommodations;
 }
 
 /**
@@ -403,6 +436,27 @@ export const DEFAULT_NEURODIVERGENT_ACCOMMODATIONS: NeurodivergentAccommodations
       gentle_progression: false,
       hide_timers: false,
       encouragement_prompts: false,
+    },
+    dyslexia: {
+      enabled: false,
+      simplified_language: false,
+      spaced_layout: false,
+      phonetic_supports: false,
+    },
+    dysgraphia: {
+      enabled: false,
+      minimize_writing_load: false,
+      prefer_selection_tasks: false,
+    },
+    nvld: {
+      enabled: false,
+      explicit_verbal_instruction: false,
+      reduce_figurative_language: false,
+    },
+    apd: {
+      enabled: false,
+      written_reinforcement: false,
+      slow_clear_narration: false,
     },
   };
 
