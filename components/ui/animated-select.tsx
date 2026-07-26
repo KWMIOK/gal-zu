@@ -17,6 +17,11 @@ type SharedSelectProps = {
   disabled?: boolean;
   "aria-label"?: string;
   className?: string;
+  /**
+   * When true, the closed trigger always shows `placeholder` (as a fixed title)
+   * instead of swapping in the selected label(s).
+   */
+  keepPlaceholder?: boolean;
 };
 
 function useSelectOpen(open: boolean, setOpen: (open: boolean) => void) {
@@ -46,11 +51,11 @@ function useSelectOpen(open: boolean, setOpen: (open: boolean) => void) {
   return rootRef;
 }
 
-const triggerClassName = (open: boolean, hasValue: boolean) =>
+const triggerClassName = (open: boolean, emphasized: boolean) =>
   `flex w-full items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2.5 text-left text-sm shadow-inner outline-none ring-violet-500/30 transition focus:ring-2 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/80 ${
     open ? "ring-2" : ""
   } ${
-    hasValue
+    emphasized
       ? "text-zinc-900 dark:text-zinc-50"
       : "text-zinc-400 dark:text-zinc-500"
   }`;
@@ -68,6 +73,7 @@ export function AnimatedSelect<T extends string>({
   options,
   placeholder,
   disabled = false,
+  keepPlaceholder = false,
   "aria-label": ariaLabel,
   className = "",
 }: SharedSelectProps & {
@@ -79,6 +85,8 @@ export function AnimatedSelect<T extends string>({
   const rootRef = useSelectOpen(open, setOpen);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
+  const triggerLabel =
+    keepPlaceholder || !selected ? placeholder : selected.label;
 
   return (
     <div ref={rootRef} className={`w-full ${className || "max-w-xs"}`}>
@@ -90,9 +98,12 @@ export function AnimatedSelect<T extends string>({
         aria-controls={listId}
         aria-label={ariaLabel}
         onClick={() => setOpen((current) => !current)}
-        className={triggerClassName(open, Boolean(selected))}
+        className={triggerClassName(
+          open,
+          keepPlaceholder || Boolean(selected),
+        )}
       >
-        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <span className="truncate">{triggerLabel}</span>
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200 dark:text-zinc-500 ${
             open ? "rotate-180" : ""
@@ -197,6 +208,7 @@ export function AnimatedMultiSelect<T extends string>({
   options,
   placeholder,
   disabled = false,
+  keepPlaceholder = false,
   "aria-label": ariaLabel,
   className = "",
 }: SharedSelectProps & {
@@ -211,9 +223,9 @@ export function AnimatedMultiSelect<T extends string>({
     values.includes(option.value),
   );
   const triggerLabel =
-    selectedOptions.length > 0
-      ? selectedOptions.map((option) => option.label).join(", ")
-      : placeholder;
+    keepPlaceholder || selectedOptions.length === 0
+      ? placeholder
+      : selectedOptions.map((option) => option.label).join(", ");
 
   function toggle(value: T) {
     if (values.includes(value)) {
@@ -233,7 +245,10 @@ export function AnimatedMultiSelect<T extends string>({
         aria-controls={listId}
         aria-label={ariaLabel}
         onClick={() => setOpen((current) => !current)}
-        className={triggerClassName(open, selectedOptions.length > 0)}
+        className={triggerClassName(
+          open,
+          keepPlaceholder || selectedOptions.length > 0,
+        )}
       >
         <span className="truncate">{triggerLabel}</span>
         <ChevronDown

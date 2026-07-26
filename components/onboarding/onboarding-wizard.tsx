@@ -132,6 +132,7 @@ export function OnboardingWizard({
             disabled={pending}
             aria-label="Learning styles"
             placeholder="Learning styles"
+            keepPlaceholder
             className="max-w-none"
             options={styleOptions}
           />
@@ -147,6 +148,7 @@ export function OnboardingWizard({
             disabled={pending}
             aria-label="Learning pace"
             placeholder="Learning pace"
+            keepPlaceholder
             className="max-w-none"
             options={paceOptions}
           />
