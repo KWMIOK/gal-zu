@@ -5,7 +5,8 @@ import type { ClerkAppearanceTheme } from "@clerk/shared/types";
 export const SIGN_UP_SUBTITLE =
   "Create your account to personalise your experience as you learn";
 
-const sharedLayout = {
+/** Clerk v7: former `layout` prop is now `options`. */
+const sharedOptions = {
   logoPlacement: "none" as const,
   socialButtonsPlacement: "top" as const,
   socialButtonsVariant: "blockButton" as const,
@@ -150,16 +151,16 @@ const darkVariables = {
 };
 
 /**
- * Builds Clerk appearance for the current color scheme. When `isDark`, layers
- * `@clerk/themes` `dark` so modal surfaces aren't stuck on white.
+ * Builds Clerk appearance for the current color scheme.
+ * Clerk v7 Theme API: `theme` (was `baseTheme`) + `options` (was `layout`).
  */
 export function buildClerkAppearance(isDark: boolean): ClerkAppearanceTheme {
   return {
-    ...(isDark ? { baseTheme: dark } : { baseTheme: undefined }),
-    layout: sharedLayout,
+    ...(isDark ? { theme: dark } : {}),
+    options: sharedOptions,
     variables: isDark ? darkVariables : lightVariables,
     elements: buildElements(isDark),
-  } as ClerkAppearanceTheme;
+  };
 }
 
 /** Default (SSR / light) appearance — prefer `buildClerkAppearance` at runtime. */
@@ -172,11 +173,11 @@ export function buildClerkSignUpPageAppearance(
   return {
     ...base,
     elements: {
-      ...(base as { elements?: Record<string, ElementStyle> }).elements,
+      ...((base.elements ?? {}) as Record<string, ElementStyle>),
       headerTitle: "hidden",
       headerSubtitle: "hidden",
     },
-  } as ClerkAppearanceTheme;
+  };
 }
 
 export const clerkSignUpPageAppearance = buildClerkSignUpPageAppearance(false);
