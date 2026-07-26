@@ -3,13 +3,15 @@
 import { Show, SignUpButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider";
 
 /**
  * Always-visible app chrome: Sign Up modal for anonymous learners, avatar +
- * preferences when registered. Modal uses the same `clerkAppearance` theme.
+ * preferences when registered. Modal follows system light/dark via Clerk theme.
  */
 export function AppHeader() {
+  const { appearance } = useGalzuClerkAppearance();
+
   return (
     <header className="border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
@@ -18,7 +20,7 @@ export function AppHeader() {
         </Link>
         <nav className="flex items-center gap-3 text-sm">
           <Show when="signed-out">
-            <SignUpButton mode="modal" appearance={clerkAppearance}>
+            <SignUpButton mode="modal" appearance={appearance}>
               <button
                 type="button"
                 className="rounded-lg bg-violet-600 px-3 py-1.5 font-medium text-white hover:bg-violet-500"
@@ -34,7 +36,7 @@ export function AppHeader() {
             >
               Preferences
             </Link>
-            <UserButton appearance={clerkAppearance} />
+            <UserButton appearance={appearance} />
           </Show>
         </nav>
       </div>

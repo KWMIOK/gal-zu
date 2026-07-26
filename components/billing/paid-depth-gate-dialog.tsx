@@ -6,7 +6,7 @@ import { Lock, Sparkles, X } from "lucide-react";
 
 import { PLAN_TIERS } from "@/lib/billing/tiers";
 import { PAID_DEPTH_LOCK_COPY } from "@/lib/billing/depth-access";
-import { clerkAppearance } from "@/lib/clerk-appearance";
+import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider";
 
 type PaidDepthGateDialogProps = {
   open: boolean;
@@ -25,6 +25,8 @@ export function PaidDepthGateDialog({
   isAnonymous,
   depthLabel,
 }: PaidDepthGateDialogProps) {
+  const { appearance } = useGalzuClerkAppearance();
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -71,7 +73,7 @@ export function PaidDepthGateDialog({
               </button>
             </Dialog.Close>
             {isAnonymous ? (
-              <SignUpButton mode="modal" appearance={clerkAppearance}>
+              <SignUpButton mode="modal" appearance={appearance}>
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"

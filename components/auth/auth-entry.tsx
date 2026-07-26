@@ -4,20 +4,19 @@ import { SignIn, SignUp } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
 import { NativeAuthPanel } from "@/components/auth/native-auth-panel";
-import {
-  clerkAppearance,
-  clerkSignUpPageAppearance,
-} from "@/lib/clerk-appearance";
+import { useGalzuClerkAppearance } from "@/components/clerk/galzu-clerk-provider";
 import { isNativePlatform } from "@/lib/capacitor/is-native";
 
 type Mode = "sign-in" | "sign-up";
 
 /**
  * Web keeps Clerk's hosted `<SignIn />` / `<SignUp />` components
- * (styled via `clerkAppearance`). Capacitor uses `NativeAuthPanel`.
+ * (system light/dark via `useGalzuClerkAppearance`). Capacitor uses
+ * `NativeAuthPanel`.
  */
 export function AuthEntry({ mode }: { mode: Mode }) {
   const [native, setNative] = useState(false);
+  const { appearance, signUpPageAppearance } = useGalzuClerkAppearance();
 
   useEffect(() => {
     setNative(isNativePlatform());
@@ -29,7 +28,7 @@ export function AuthEntry({ mode }: { mode: Mode }) {
 
   return mode === "sign-in" ? (
     <SignIn
-      appearance={clerkAppearance}
+      appearance={appearance}
       routing="path"
       path="/sign-in"
       signUpUrl="/sign-up"
@@ -38,7 +37,7 @@ export function AuthEntry({ mode }: { mode: Mode }) {
     />
   ) : (
     <SignUp
-      appearance={clerkSignUpPageAppearance}
+      appearance={signUpPageAppearance}
       routing="path"
       path="/sign-up"
       signInUrl="/sign-in"

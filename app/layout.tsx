@@ -1,14 +1,10 @@
-import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { GalzuClerkProvider } from "@/components/clerk/galzu-clerk-provider";
 import { AppHeader } from "@/components/layout/app-header";
 import { CapacitorAuthBridge } from "@/components/mobile/capacitor-auth-bridge";
 import { RevenueCatInitializer } from "@/components/mobile/revenuecat-initializer";
-import {
-  clerkAppearance,
-  clerkLocalization,
-} from "@/lib/clerk-appearance";
 
 import "./globals.css";
 
@@ -34,6 +30,12 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  // Advertise both schemes so mobile WebViews / browsers pick system theme.
+  colorScheme: "dark light",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
 };
 
 export default async function RootLayout({
@@ -42,18 +44,18 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization}>
-      <html
-        lang="en"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
+        <GalzuClerkProvider>
           <CapacitorAuthBridge />
           <RevenueCatInitializer />
           <AppHeader />
           {children}
-        </body>
-      </html>
-    </ClerkProvider>
+        </GalzuClerkProvider>
+      </body>
+    </html>
   );
 }
