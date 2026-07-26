@@ -57,11 +57,6 @@ export function NativeAuthPanel({ mode }: NativeAuthPanelProps) {
         <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           {isSignIn ? "Sign in" : "Create your account"}
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {isSignIn
-            ? "Continue with Google — stays in the app."
-            : "Create your account to personalise your experience as you learn"}
-        </p>
       </div>
 
       <button

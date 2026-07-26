@@ -108,7 +108,9 @@ export async function startNativeGoogleAuth({
         style: Capacitor.getPlatform() === "android" ? "bottom" : "standard",
         filterByAuthorizedAccounts: false,
         forcePrompt: true,
-        scopes: ["email", "profile"],
+        // Do NOT pass `scopes` here. Capgo rejects custom scopes unless
+        // MainActivity implements ModifiedMainActivityForSocialLoginPlugin.
+        // Default email/profile/openid scopes are already requested by the plugin.
       },
     });
 
