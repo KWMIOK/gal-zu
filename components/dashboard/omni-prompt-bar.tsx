@@ -3,17 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import {
-  BookOpen,
-  Clock,
-  Compass,
-  GraduationCap,
-  Loader2,
-  Lock,
-  Sparkles,
-  Sprout,
-  Zap,
-} from "lucide-react";
+import { Loader2, Sparkles, Sprout } from "lucide-react";
 
 import { createCourseFromPrompt } from "@/app/actions/generation";
 import { PaidDepthGateDialog } from "@/components/billing/paid-depth-gate-dialog";
@@ -27,7 +17,6 @@ import { PLAN_TIERS } from "@/lib/billing/tiers";
 import {
   type CreateCourseFromPromptOptions,
   type PromptDepth,
-  type PromptSessionLength,
 } from "@/lib/generation/create-course";
 import {
   isCapReachedMessage,
@@ -38,45 +27,31 @@ import {
 const depthOptions: {
   id: PromptDepth;
   label: string;
-  icon: typeof Zap;
   hint: string;
   paid?: boolean;
 }[] = [
   {
     id: "quick_answer",
     label: "Quick answer",
-    icon: Zap,
     hint: "One focused lesson, right now.",
   },
   {
     id: "overview",
     label: "Overview",
-    icon: Compass,
     hint: "A short guided tour — a few lessons.",
   },
   {
     id: "deep_dive",
     label: "Deep dive",
-    icon: BookOpen,
     hint: "A proper multi-module course.",
     paid: true,
   },
   {
     id: "complete_mastery",
     label: "Complete mastery",
-    icon: GraduationCap,
     hint: "The full curriculum — as many modules as the topic really needs.",
     paid: true,
   },
-];
-
-const sessionOptions: {
-  id: PromptSessionLength;
-  label: string;
-}[] = [
-  { id: "5min", label: "5 min" },
-  { id: "20min", label: "20 min" },
-  { id: "multi_week", label: "Multi-week" },
 ];
 
 export function OmniPromptBar({
@@ -90,9 +65,7 @@ export function OmniPromptBar({
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const [prompt, setPrompt] = useState("");
-  const [depth, setDepth] = useState<PromptDepth>("quick_answer");
-  const [sessionLength, setSessionLength] =
-    useState<PromptSessionLength>("20min");
+  const [depth, setDepth] = useState<PromptDepth | "">("");
   const [error, setError] = useState<string | null>(null);
   const [capReached, setCapReached] = useState(false);
   const [depthLocked, setDepthLocked] = useState(false);
@@ -100,7 +73,17 @@ export function OmniPromptBar({
   const [gateLabel, setGateLabel] = useState("Deep dive");
   const [pending, startTransition] = useTransition();
 
-  function selectDepth(id: PromptDepth) {
+  const selectedHint =
+    depth === ""
+      ? null
+      : depthOptions.find((d) => d.id === depth)?.hint ?? null;
+
+  function handleDepthChange(next: string) {
+    if (!next) {
+      setDepth("");
+      return;
+    }
+    const id = next as PromptDepth;
     const option = depthOptions.find((d) => d.id === id);
     if (option?.paid && !canUsePaidDepths) {
       setGateLabel(option.label);
@@ -116,6 +99,11 @@ export function OmniPromptBar({
     setCapReached(false);
     setDepthLocked(false);
 
+    if (!depth) {
+      setError("Choose a depth before starting.");
+      return;
+    }
+
     if (isPaidPromptDepth(depth) && !canUsePaidDepths) {
       const option = depthOptions.find((d) => d.id === depth);
       setGateLabel(option?.label ?? "This depth");
@@ -123,10 +111,7 @@ export function OmniPromptBar({
       return;
     }
 
-    const options: CreateCourseFromPromptOptions = {
-      depth,
-      sessionLength,
-    };
+    const options: CreateCourseFromPromptOptions = { depth };
 
     startTransition(async () => {
       try {
@@ -187,7 +172,7 @@ export function OmniPromptBar({
             />
             <button
               type="submit"
-              disabled={pending || !prompt.trim()}
+              disabled={pending || !prompt.trim() || !depth}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
             >
               {pending ? (
@@ -203,73 +188,34 @@ export function OmniPromptBar({
           </div>
 
           <div className="space-y-2">
-            <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
-              <GraduationCap className="h-3.5 w-3.5" /> Depth
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {depthOptions.map(({ id, label, icon: Icon, paid }) => {
+            <select
+              value={depth}
+              onChange={(e) => handleDepthChange(e.target.value)}
+              disabled={pending}
+              aria-label="Depth"
+              className={`w-full max-w-xs rounded-xl border border-zinc-200/80 bg-white/80 px-3 py-2.5 text-sm shadow-inner outline-none ring-violet-500/30 focus:ring-2 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/80 ${
+                depth === ""
+                  ? "text-zinc-400"
+                  : "text-zinc-900 dark:text-zinc-50"
+              }`}
+            >
+              <option value="" disabled>
+                Depth
+              </option>
+              {depthOptions.map(({ id, label, paid }) => {
                 const locked = Boolean(paid && !canUsePaidDepths);
-                const selected = depth === id && !locked;
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    disabled={pending}
-                    onClick={() => selectDepth(id)}
-                    title={
-                      locked
-                        ? `${label} requires Gal-zu Pro (not free with signup)`
-                        : depthOptions.find((d) => d.id === id)?.hint
-                    }
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${
-                      selected
-                        ? "bg-violet-600 text-white"
-                        : locked
-                          ? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-800/80 dark:text-zinc-400 dark:ring-zinc-700"
-                          : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200"
-                    }`}
-                  >
-                    {locked ? (
-                      <Lock className="h-3.5 w-3.5" />
-                    ) : (
-                      <Icon className="h-3.5 w-3.5" />
-                    )}
-                    {label}
-                    {locked ? (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
-                        Pro
-                      </span>
-                    ) : null}
-                  </button>
+                  <option key={id} value={id}>
+                    {locked ? `${label} (Pro)` : label}
+                  </option>
                 );
               })}
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {depthOptions.find((d) => d.id === depth)?.hint}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
-              <Clock className="h-3.5 w-3.5" /> Session
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {sessionOptions.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => setSessionLength(id)}
-                  className={`rounded-full px-3 py-1.5 text-sm transition ${
-                    sessionLength === id
-                      ? "bg-fuchsia-600 text-white"
-                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            </select>
+            {selectedHint ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {selectedHint}
+              </p>
+            ) : null}
           </div>
 
           {error && capReached ? (
