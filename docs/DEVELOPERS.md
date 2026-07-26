@@ -191,10 +191,26 @@ flowchart TB
 |-------|------|
 | `SignUpCta` | Only allowed Sign Up CTA; native → `Link` `/sign-up` |
 | `AuthEntry` | Native → `NativeAuthPanel` only (no web Clerk flash) |
-| `startNativeGoogleAuth` | Capgo SocialLogin → Clerk `google_one_tap` |
+| `startNativeGoogleAuth` | Capgo SocialLogin → Clerk `authenticateWithGoogleOneTap` |
 | `openAuthUrl` | Throws if asked to open Google OAuth URLs on native |
 
 Requires `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (+ Android OAuth client for `com.galzu.app` + SHA-1). `CapacitorAuthBridge` is cold-start deep-link only; Google does not use Custom Tabs.
+
+#### Allow *any* Google account (multi-account testing)
+
+The app does **not** filter accounts. If only one Google account works, fix the dashboards:
+
+1. **[Google Cloud Console → OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent)**
+   - User type: **External** (not Internal — Internal is Workspace-only).
+   - Publishing status: click **Publish app** → **In production** so any Google account can sign in (for Sign-in-with-Google / `email`+`profile`+`openid` you typically do **not** need full Google verification).
+   - If you stay in **Testing**, every account you use must be listed under **Audience → Test users** (max 100).
+2. **Clerk Dashboard → SSO → Google**
+   - Enable Google with **custom credentials**.
+   - Client ID must **exactly match** `NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID` (same Web OAuth client Capgo uses).
+   - Turn off any Clerk **allowlist / restricted** sign-up mode if you want arbitrary testers.
+3. Wait a few minutes after Cloud Console changes, then retry on device.
+
+Wrong Client ID match → Clerk `"You are not authorized…"` / invalid One Tap token. Consent **Testing** without test users → Google blocks other accounts.
 
 ### Middleware public routes
 
