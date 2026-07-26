@@ -50,6 +50,7 @@ export function GalzuClerkProvider({ children }: { children: ReactNode }) {
   return (
     <ClerkAppearanceContext.Provider value={bundle}>
       <ClerkProvider
+        key={isDark ? "dark" : "light"}
         appearance={bundle.appearance}
         localization={clerkLocalization}
       >
