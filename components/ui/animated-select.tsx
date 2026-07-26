@@ -62,7 +62,7 @@ export function AnimatedSelect<T extends string>({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={`w-full max-w-xs ${className}`}>
+    <div ref={rootRef} className={`w-full ${className || "max-w-xs"}`}>
       <button
         type="button"
         disabled={disabled}

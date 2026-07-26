@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowRight, Brain, Calculator, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowRight, Brain, Calculator, CheckCircle2 } from "lucide-react";
 
 import { saveOnboardingPreferences } from "@/app/actions/onboarding";
+import { AnimatedSelect } from "@/components/ui/animated-select";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   DEFAULT_LEARNING_STYLES,
@@ -18,6 +19,28 @@ const styleOptions: { key: keyof LearningStyles; label: string }[] = [
   { key: "auditory", label: "Auditory" },
   { key: "hands_on", label: "Hands-on" },
   { key: "reading_writing", label: "Reading / writing" },
+];
+
+const paceOptions: {
+  value: NonNullable<LearningStyles["preferred_pace"]>;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "slow",
+    label: "Slow & steady",
+    hint: "More slides, gentler progression.",
+  },
+  {
+    value: "moderate",
+    label: "Moderate",
+    hint: "Balanced pacing for most topics.",
+  },
+  {
+    value: "fast",
+    label: "Fast",
+    hint: "Denser lessons, fewer pauses.",
+  },
 ];
 
 export function OnboardingWizard({
@@ -73,28 +96,26 @@ export function OnboardingWizard({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-12">
-      <div className="space-y-2 text-center">
-        <p className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 dark:text-violet-400">
-          <Sparkles className="h-4 w-4" />{" "}
-          {mode === "settings" ? "Learning preferences" : "Welcome to Gal-zu"}
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Tune your learning experience
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          These shape every new course and lesson — slide length, lesson
-          formats (quiz vs slides vs script), tone, and accommodations. The
-          app also learns from how you use it and refines later lessons
-          (no extra AI cost for that).
-        </p>
-      </div>
+      {mode === "onboarding" ? (
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Tune your learning experience
+          </h1>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            These shape every new course and lesson — slide length, lesson
+            formats (quiz vs slides vs script), tone, and accommodations. The
+            app also learns from how you use it and refines later lessons
+            (no extra AI cost for that).
+          </p>
+        </div>
+      ) : null}
 
       <GlassCard className="space-y-6 p-6">
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
             <Brain className="h-4 w-4" /> Learning styles
           </h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {styleOptions.map(({ key, label }) => {
               const active = learningStyles[key] === true;
               return (
@@ -102,7 +123,7 @@ export function OnboardingWizard({
                   key={key}
                   type="button"
                   onClick={() => toggleStyle(key)}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                  className={`w-full rounded-full px-3 py-2 text-sm font-medium transition ${
                     active
                       ? "bg-violet-600 text-white shadow-md shadow-violet-500/30"
                       : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200"
@@ -113,25 +134,23 @@ export function OnboardingWizard({
               );
             })}
           </div>
-          <label className="mt-4 block text-sm text-zinc-600 dark:text-zinc-400">
-            Preferred pace
-            <select
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
+          <div className="mt-4">
+            <AnimatedSelect
               value={learningStyles.preferred_pace ?? "moderate"}
-              onChange={(e) => {
+              onChange={(pace) => {
                 setSaved(false);
                 setLearningStyles((prev) => ({
                   ...prev,
-                  preferred_pace: e.target
-                    .value as LearningStyles["preferred_pace"],
+                  preferred_pace: pace,
                 }));
               }}
-            >
-              <option value="slow">Slow & steady</option>
-              <option value="moderate">Moderate</option>
-              <option value="fast">Fast</option>
-            </select>
-          </label>
+              disabled={pending}
+              aria-label="Preferred pace"
+              placeholder="Preferred pace"
+              className="max-w-none"
+              options={paceOptions}
+            />
+          </div>
         </section>
 
         <section className="space-y-3 border-t border-zinc-200/80 pt-6 dark:border-zinc-700/80">

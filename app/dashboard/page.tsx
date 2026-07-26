@@ -1,5 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
-
 import {
   CourseGrid,
   type CourseWithProgress,
@@ -18,12 +16,10 @@ import {
 } from "@/lib/db/index";
 import { getQuotaSummary, type QuotaSummary } from "@/lib/generation/quota";
 import { getClerkSupabaseAccessToken } from "@/lib/supabase/clerk-token";
-import { profilePreferenceSummary } from "@/lib/user-profile-normalize";
 
 export const maxDuration = 300;
 
 export default async function DashboardPage() {
-  const { userId: clerkUserId } = await auth();
   const actor = await getActorContext();
 
   const supabaseTokenReady = actor.isGuest
@@ -32,9 +28,6 @@ export default async function DashboardPage() {
 
   const profile =
     supabaseTokenReady ? await getUserProfile(actor.userId) : null;
-  const activePreferenceTags = clerkUserId
-    ? profilePreferenceSummary(profile)
-    : [];
   const quota: QuotaSummary | null =
     profile && !actor.isGuest ? await getQuotaSummary(profile) : null;
   const canUsePaidDepths = profile?.plan_tier === "pro";
@@ -64,28 +57,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {actor.isGuest ? "Start learning" : "Dashboard"}
-        </h1>
-        {actor.isGuest ? (
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Try Quick answer or Overview free — no account required. Sign up
-            anytime to save preferences.
-          </p>
-        ) : null}
-      </header>
-
       {!supabaseTokenReady && !actor.isGuest ? <SupabaseSetupBanner /> : null}
-
-      {activePreferenceTags.length > 0 ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Active for AI generation:{" "}
-          <span className="text-zinc-800 dark:text-zinc-200">
-            {activePreferenceTags.join(" · ")}
-          </span>
-        </p>
-      ) : null}
 
       <OmniPromptBar
         initialQuota={quota}
