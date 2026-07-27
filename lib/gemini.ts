@@ -7,7 +7,11 @@ import type { z } from "zod";
 import { ANIMATION_TAGS } from "@/lib/animations/lottie-map";
 import { getServerEnv } from "@/lib/env";
 import { parseJsonUnknown } from "@/lib/gemini/json";
-import { normalizeQuizPayload } from "@/lib/gemini/normalize-lesson";
+import {
+  normalizeQuizPayload,
+  shuffleMultipleChoiceOptions,
+  shuffleQuizQuestions,
+} from "@/lib/gemini/normalize-lesson";
 import { buildProfileAdaptationInstructions } from "@/lib/generation/profile-adaptation";
 import {
   buildScopeHints,
@@ -343,7 +347,20 @@ export function normalizeRoadmapTree(
 }
 
 function padSlideDeck(content: SlideContent, minSlides: number): SlideContent {
-  const slides = [...content.slides];
+  const slides = [...content.slides].map((slide) => {
+    const widget = slide.interactive_widget;
+    if (!widget || widget.type !== "multiple_choice") return slide;
+    return {
+      ...slide,
+      interactive_widget: {
+        ...widget,
+        data: {
+          ...widget.data,
+          options: shuffleMultipleChoiceOptions(widget.data.options),
+        },
+      },
+    };
+  });
   let n = slides.length;
   while (n < minSlides) {
     const text =
@@ -528,6 +545,7 @@ Hard rules:
 - "questions" MUST be a non-empty array.
 - Every question MUST use "prompt" (string), "choices" (array of 2–6 strings), and "correct_index" (0-based integer into choices).
 - Do NOT use "question", "options", "answers", "correct_option_id", or letter answers like "B" — only the fields above.
+- Vary "correct_index" across questions — the right answer must NOT always be first (index 0).
 - Questions must be factual and specific to this lesson topic — no generic filler.
 `;
 
@@ -661,10 +679,12 @@ ${buildProfileAdaptationInstructions(profile)}`;
     if (parsed.type === "quiz") {
       return {
         ...parsed,
-        questions: parsed.questions.map((question) => ({
-          ...question,
-          id: ensureId("q", question.id),
-        })),
+        questions: shuffleQuizQuestions(
+          parsed.questions.map((question) => ({
+            ...question,
+            id: ensureId("q", question.id),
+          })),
+        ),
       };
     }
     return parsed;

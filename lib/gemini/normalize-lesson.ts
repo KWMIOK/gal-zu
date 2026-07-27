@@ -167,3 +167,72 @@ export function normalizeQuizPayload(raw: unknown): unknown {
     ...(questions !== undefined ? { questions } : {}),
   };
 }
+
+/** Fisher–Yates shuffle (mutates a copy). */
+function shuffledIndices(length: number): number[] {
+  const indices = Array.from({ length }, (_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = indices[i]!;
+    indices[i] = indices[j]!;
+    indices[j] = tmp;
+  }
+  return indices;
+}
+
+export type ShufflableQuizQuestion = {
+  id?: string;
+  prompt: string;
+  choices: string[];
+  correct_index: number;
+  hint?: string;
+  explanation?: string;
+};
+
+/**
+ * Randomize choice order and remapped correct_index so the model bias of
+ * "always put the right answer first" doesn't leak into the learner UI.
+ */
+export function shuffleQuizQuestion<T extends ShufflableQuizQuestion>(
+  question: T,
+): T {
+  const { choices, correct_index } = question;
+  if (!Array.isArray(choices) || choices.length < 2) return question;
+
+  const safeIndex =
+    Number.isInteger(correct_index) &&
+    correct_index >= 0 &&
+    correct_index < choices.length
+      ? correct_index
+      : 0;
+  const correctText = choices[safeIndex]!;
+  const order = shuffledIndices(choices.length);
+  const nextChoices = order.map((i) => choices[i]!);
+  const nextCorrect = nextChoices.indexOf(correctText);
+
+  return {
+    ...question,
+    choices: nextChoices,
+    correct_index: nextCorrect >= 0 ? nextCorrect : 0,
+  };
+}
+
+export function shuffleQuizQuestions<T extends ShufflableQuizQuestion>(
+  questions: T[],
+): T[] {
+  return questions.map(shuffleQuizQuestion);
+}
+
+export type ShufflableMcOption = { id: string; text: string };
+
+/**
+ * Shuffle slide `multiple_choice` options. `correct_option_id` stays valid
+ * because option objects (and their ids) move together.
+ */
+export function shuffleMultipleChoiceOptions<T extends ShufflableMcOption>(
+  options: T[],
+): T[] {
+  if (options.length < 2) return options;
+  const order = shuffledIndices(options.length);
+  return order.map((i) => options[i]!);
+}
