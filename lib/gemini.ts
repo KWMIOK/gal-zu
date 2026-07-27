@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { ANIMATION_TAGS } from "@/lib/animations/lottie-map";
 import { getServerEnv } from "@/lib/env";
 import { parseJsonUnknown } from "@/lib/gemini/json";
+import { normalizeQuizPayload } from "@/lib/gemini/normalize-lesson";
 import { buildProfileAdaptationInstructions } from "@/lib/generation/profile-adaptation";
 import {
   buildScopeHints,
@@ -139,6 +140,10 @@ async function generateStructuredJson(
   systemInstruction: string,
   userPrompt: string,
   schema: z.ZodType,
+  options?: {
+    /** Reshape model JSON aliases before Zod (never invent content). */
+    normalize?: (raw: unknown) => unknown;
+  },
 ): Promise<unknown> {
   const ai = getGeminiClient();
   const failures: string[] = [];
@@ -162,7 +167,10 @@ async function generateStructuredJson(
         }
 
         const parsed = parseJsonUnknown(text);
-        const validated = schema.safeParse(parsed);
+        const normalized = options?.normalize
+          ? options.normalize(parsed)
+          : parsed;
+        const validated = schema.safeParse(normalized);
         if (!validated.success) {
           throw new GeminiEngineError(
             `Schema validation failed for model ${model}: ${validated.error.message}`,
@@ -499,6 +507,40 @@ ${buildProfileAdaptationInstructions(profile)}`;
   }
 }
 
+const QUIZ_FORMAT_RULES = `
+quiz format — return EXACTLY this JSON shape (field names are mandatory):
+{
+  "type": "quiz",
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "The question text the learner sees",
+      "choices": ["Option A", "Option B", "Option C", "Option D"],
+      "correct_index": 0,
+      "hint": "Optional short nudge",
+      "explanation": "Optional why the answer is correct"
+    }
+  ],
+  "passing_score_percent": 70
+}
+Hard rules:
+- "type" MUST be the string "quiz" (never "slideshow", "multiple_choice", or anything else).
+- "questions" MUST be a non-empty array.
+- Every question MUST use "prompt" (string), "choices" (array of 2–6 strings), and "correct_index" (0-based integer into choices).
+- Do NOT use "question", "options", "answers", "correct_option_id", or letter answers like "B" — only the fields above.
+- Questions must be factual and specific to this lesson topic — no generic filler.
+`;
+
+const CHEAT_SHEET_FORMAT_RULES = `
+cheat_sheet format — return EXACTLY:
+{ "type": "cheat_sheet", "markdown": "...", "key_takeaways": ["...", "..."] }
+`;
+
+const SCRIPT_FORMAT_RULES = `
+script format — return EXACTLY:
+{ "type": "script", "markdown": "..." }
+`;
+
 const SLIDESHOW_MULTIMODAL_RULES = `
 Every slide object MUST include these fields:
 - "id": unique string
@@ -563,6 +605,17 @@ export async function generateLessonPayload(
   const grounding =
     format === "slideshow" ? await groundedResearch(trimmedTopic) : null;
 
+  const formatRules =
+    format === "slideshow"
+      ? SLIDESHOW_MULTIMODAL_RULES
+      : format === "quiz"
+        ? QUIZ_FORMAT_RULES
+        : format === "cheat_sheet"
+          ? CHEAT_SHEET_FORMAT_RULES
+          : format === "script"
+            ? SCRIPT_FORMAT_RULES
+            : "";
+
   const systemInstruction = `${EDUCATOR_SYSTEM_PREAMBLE}
 
 Return ONLY valid JSON for format "${format}".
@@ -573,9 +626,7 @@ slideshow: { "type":"slideshow", "slides":[...] } — EXACTLY ${slideMin} to ${s
   Slide 3: Interactive practice / step-by-step breakdown
   Slide 4: Nuance, grammar rules, or advanced edge cases
   Slide 5+: Common pitfalls, key takeaways & memory tricks (specific facts only)
-${format === "slideshow" ? SLIDESHOW_MULTIMODAL_RULES : ""}
-
-cheat_sheet | quiz | script: factual, topic-specific content only.
+${formatRules}
 
 Use unique string slide/question ids.
 
@@ -598,6 +649,7 @@ ${buildProfileAdaptationInstructions(profile)}`;
       systemInstruction,
       userPrompt,
       schema,
+      format === "quiz" ? { normalize: normalizeQuizPayload } : undefined,
     );
     const parsed = schema.parse(payload) as ValidatedLessonPayload;
     if (parsed.type === "slideshow") {
@@ -605,6 +657,15 @@ ${buildProfileAdaptationInstructions(profile)}`;
       return grounding?.citations.length
         ? { ...padded, citations: grounding.citations }
         : padded;
+    }
+    if (parsed.type === "quiz") {
+      return {
+        ...parsed,
+        questions: parsed.questions.map((question) => ({
+          ...question,
+          id: ensureId("q", question.id),
+        })),
+      };
     }
     return parsed;
   } catch (error) {

@@ -125,7 +125,8 @@ export const cheatSheetContentSchema = z.object({
 });
 
 export const quizQuestionSchema = z.object({
-  id: z.string().min(1),
+  // Optional: models often omit ids; generateLessonPayload backfills them.
+  id: z.string().min(1).optional(),
   prompt: z.string().min(1),
   choices: z.array(z.string().min(1)).min(2),
   correct_index: z.number().int().nonnegative(),
